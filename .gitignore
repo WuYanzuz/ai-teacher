@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.venv/
+venv/
+env/
+
+# 配置和密钥
+.env
+*.env.local
+secrets.yaml
+
+# 运行时数据
+data/cache/
+data/logs/
+data/*.db
+data/demo/
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+
+# wcferry / 微信 DLL (按需)
+wcferry_dll/
+*.dll

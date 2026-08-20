@@ -1,0 +1,55 @@
+# AI 批改机器人 - 运行时配置
+# 大部分环境变量从 .env 读, 这里放结构化配置
+
+models:
+  # 视觉模型
+  # provider:  qwen (阿里 DashScope)  |  doubao (字节火山方舟)
+  # 当前默认 doubao,因为只用火山 key 就够
+  vision:
+    provider: doubao
+    name: doubao-1-5-vision-pro-32k   # 火山方舟上创建的接入点 model id
+    temperature: 0.4
+    max_tokens: 1024
+    timeout_sec: 60
+
+  # 语音识别
+  # 当前: 阿里 DashScope Paraformer (需要 DASHSCOPE_API_KEY)
+  # 备选: 火山 ASR (需要填 volc_asr 块里的 appid/secret 等, 暂未实现客户端)
+  # 如果只想用火山账号, 暂时把语音作业当作纯图片(不会转写)处理
+  asr:
+    provider: paraformer
+    name: paraformer-v2
+    sample_rate: 16000
+    timeout_sec: 30
+
+  # 文本润色 / 老师指令理解
+  # provider:  deepseek (官方)  |  ark (火山方舟)
+  # 当前默认 ark,只用火山 key
+  text:
+    provider: ark
+    name: deepseek-v3   # 火山方舟上的 deepseek 接入点 model id
+    temperature: 0.6
+    max_tokens: 1024
+    timeout_sec: 30
+
+media:
+  # 图片最大尺寸 (像素)
+  image_max_dim: 2048
+  image_quality: 85
+  # 视频抽帧数
+  video_frames: 6
+  video_fps: 1
+  video_scale: 720
+  # 文件大小上限 (MB)
+  image_max_mb: 20
+  video_max_mb: 100
+
+paths:
+  cache_dir: data/cache
+  db_path: data/ai_teacher.db
+  log_dir: data/logs
+
+logging:
+  level: INFO
+  rotation: 100 MB
+  retention: 30 days

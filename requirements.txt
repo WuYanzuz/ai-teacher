@@ -1,0 +1,28 @@
+# AI 批改微信机器人依赖
+# Python 3.11+
+
+# 微信接入
+wcferry>=39.2.0
+
+# AI 模型
+dashscope>=1.20.0
+openai>=1.30.0
+
+# 媒体处理
+Pillow>=10.0.0
+ffmpeg-python>=0.2.0
+
+# 存储
+peewee>=3.17.0
+
+# 配置与日志
+python-dotenv>=1.0.0
+PyYAML>=6.0
+loguru>=0.7.0
+
+# HTTP
+requests>=2.31.0
+
+# 测试
+pytest>=8.0.0
+pytest-mock>=3.12.0
