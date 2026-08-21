@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..utils.config import get_settings
 from ..utils.logger import get_logger
+from .ffmpeg_utils import require_ffmpeg
 
 log = get_logger()
 VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".avi", ".m4v"}
@@ -18,10 +19,7 @@ def is_video(path: Path) -> bool:
 
 
 def _which_ffmpeg() -> str:
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        raise RuntimeError("ffmpeg not found in PATH")
-    return ffmpeg
+    return require_ffmpeg()
 
 
 def extract_frames(

@@ -37,11 +37,26 @@ class Settings:
         self.yaml = _load_yaml()
 
         # API keys
+        # 阿里百炼 (Aliyun Bailian / Model Studio)
+        # 工作空间专用端点, 兼容 OpenAI 协议
+        self.aliyun_api_key: str = os.getenv("ALIYUN_API_KEY", "")
+        self.aliyun_base_url: str = os.getenv(
+            "ALIYUN_BASE_URL",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        )
+        # 火山方舟 (Plan 套餐)
         self.volc_api_key: str = os.getenv("VOLC_API_KEY", "")
         self.volc_base_url: str = os.getenv(
-            "VOLC_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"
+            "VOLC_BASE_URL", "https://ark.cn-beijing.volces.com/api/plan/v3"
         )
-        self.dashscope_api_key: str = os.getenv("DASHSCOPE_API_KEY", "")
+        # 阿里 OSS (用于 paraformer-8k-v2 语音转写, 需上传公网 URL)
+        self.oss_key_id: str = os.getenv("ALIYUN_OSS_KEY_ID", "")
+        self.oss_key_secret: str = os.getenv("ALIYUN_OSS_KEY_SECRET", "")
+        self.oss_bucket: str = os.getenv("ALIYUN_OSS_BUCKET", "")
+        self.oss_endpoint: str = os.getenv("ALIYUN_OSS_ENDPOINT", "oss-cn-beijing.aliyuncs.com")
+        # DashScope (标准, 备选) - 留空时自动用 ALIYUN_API_KEY (百炼和 DashScope 共用 key)
+        self.dashscope_api_key: str = os.getenv("DASHSCOPE_API_KEY") or os.getenv("ALIYUN_API_KEY", "")
+        # DeepSeek 官方 (备选)
         self.deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY", "")
         self.deepseek_base_url: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 

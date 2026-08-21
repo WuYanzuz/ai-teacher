@@ -16,16 +16,18 @@ settings = get_settings()
 
 def _validate_env() -> None:
     missing = []
-    # Volcano is the primary key (vision + text). If it's not set, fall back
-    # to DashScope (for Qwen-VL) + DeepSeek.
-    if not settings.volc_api_key or settings.volc_api_key.startswith("your-"):
-        if not settings.dashscope_api_key or settings.dashscope_api_key.startswith("sk-your"):
-            missing.append("DASHSCOPE_API_KEY (火山 key 未填时必填)")
-        if not settings.deepseek_api_key or settings.deepseek_api_key.startswith("sk-your"):
-            missing.append("DEEPSEEK_API_KEY (火山 key 未填时必填)")
-    if not settings.teacher_wxid:
+    # Aliyun Bailian is the new primary. Volcano / DashScope are fallbacks.
+    has_aliyun = settings.aliyun_api_key and not settings.aliyun_api_key.startswith("sk-your")
+    has_volc = settings.volc_api_key and not settings.volc_api_key.startswith("your-")
+    has_dashscope = settings.dashscope_api_key and not settings.dashscope_api_key.startswith("sk-your")
+    has_deepseek = settings.deepseek_api_key and not settings.deepseek_api_key.startswith("sk-your")
+
+    if not (has_aliyun or has_volc or has_dashscope or has_deepseek):
+        missing.append("ALIYUN_API_KEY (或 VOLC_API_KEY / DASHSCOPE_API_KEY)")
+
+    if not settings.teacher_wxid or settings.teacher_wxid == "wxid_teacher":
         missing.append("WCF_TEACHER_WXID")
-    if not settings.whitelist_groups:
+    if not settings.whitelist_groups or settings.whitelist_groups == ["1234567890@chatroom"]:
         missing.append("WCF_WHITELIST_GROUPS")
     if missing:
         log.error(f"请在 .env 中设置: {', '.join(missing)}")

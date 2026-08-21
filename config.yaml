@@ -3,31 +3,30 @@
 
 models:
   # 视觉模型
-  # provider:  qwen (阿里 DashScope)  |  doubao (字节火山方舟)
-  # 当前默认 doubao,因为只用火山 key 就够
+  # provider:  aliyun (阿里百炼 OpenAI 兼容)  |  doubao (字节火山方舟)  |  qwen (DashScope 原生)
+  # 当前默认 aliyun, 一个 key 解决视觉+文本
   vision:
-    provider: doubao
-    name: doubao-1-5-vision-pro-32k   # 火山方舟上创建的接入点 model id
+    provider: aliyun
+    name: qwen-vl-plus          # 百炼平台可用的视觉模型
     temperature: 0.4
     max_tokens: 1024
     timeout_sec: 60
 
   # 语音识别
-  # 当前: 阿里 DashScope Paraformer (需要 DASHSCOPE_API_KEY)
-  # 备选: 火山 ASR (需要填 volc_asr 块里的 appid/secret 等, 暂未实现客户端)
-  # 如果只想用火山账号, 暂时把语音作业当作纯图片(不会转写)处理
+  # paraformer-v2 (file transcription) - 通过 OSS 上传, 便宜 (¥0.0001/秒)
+  # 结果在 transcription_url 指向的 JSON 里, 含词级时间戳
   asr:
     provider: paraformer
     name: paraformer-v2
     sample_rate: 16000
-    timeout_sec: 30
+    timeout_sec: 120
 
   # 文本润色 / 老师指令理解
-  # provider:  deepseek (官方)  |  ark (火山方舟)
-  # 当前默认 ark,只用火山 key
+  # provider:  aliyun (阿里百炼)  |  ark (火山方舟)  |  deepseek (官方)
+  # 当前默认 aliyun, 跟视觉共用一个 key
   text:
     provider: ark
-    name: deepseek-v3   # 火山方舟上的 deepseek 接入点 model id
+    name: ark-code-latest             
     temperature: 0.6
     max_tokens: 1024
     timeout_sec: 30

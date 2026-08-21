@@ -39,3 +39,11 @@ htmlcov/
 # wcferry / 微信 DLL (按需)
 wcferry_dll/
 *.dll
+
+# 测试用的媒体文件 (可能含孩子隐私)
+test/
+*.mp4
+*.mov
+*.wav
+*.mp3
+

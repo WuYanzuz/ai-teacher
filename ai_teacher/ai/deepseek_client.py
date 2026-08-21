@@ -1,9 +1,9 @@
-"""Text LLM client. Supports both DeepSeek official and Volcano Ark (Doubao Ark).
+"""Text LLM client. Supports multiple providers, all OpenAI-compatible.
 
-Both providers speak the OpenAI protocol, so we wrap the `openai` SDK.
 Choose via config.yaml -> models.text.provider:
-  - "deepseek" -> use DEEPSEEK_API_KEY + DEEPSEEK_BASE_URL
-  - "ark"      -> use VOLC_API_KEY + volc_base_url
+  - "aliyun"  : Aliyun Bailian (qwen-plus, deepseek-v3, etc.)
+  - "ark"     : Volcano Ark Plan endpoint
+  - "deepseek": DeepSeek official
 """
 
 from __future__ import annotations
@@ -21,21 +21,26 @@ class TextClient:
     def __init__(self) -> None:
         s = get_settings()
         cfg = s.model("text") or {}
-        provider = cfg.get("provider", "deepseek").lower()
+        provider = cfg.get("provider", "aliyun").lower()
 
-        if provider == "ark":
+        if provider == "aliyun":
+            if not s.aliyun_api_key:
+                raise RuntimeError("ALIYUN_API_KEY not set in .env")
+            self.client = OpenAI(api_key=s.aliyun_api_key, base_url=s.aliyun_base_url)
+            log.info(f"text provider: Aliyun Bailian ({s.aliyun_base_url[:50]}...)")
+        elif provider == "ark":
             if not s.volc_api_key:
                 raise RuntimeError("VOLC_API_KEY not set in .env")
             self.client = OpenAI(api_key=s.volc_api_key, base_url=s.volc_base_url)
-            log.info("text provider: Volcano Ark (Doubao)")
-        else:
+            log.info(f"text provider: Volcano Ark ({s.volc_base_url[:50]}...)")
+        else:  # deepseek official
             if not s.deepseek_api_key:
                 raise RuntimeError("DEEPSEEK_API_KEY not set in .env")
             self.client = OpenAI(api_key=s.deepseek_api_key, base_url=s.deepseek_base_url)
-            log.info("text provider: DeepSeek official")
+            log.info(f"text provider: DeepSeek official")
 
         self.cfg = cfg
-        self.model = cfg.get("name", "deepseek-chat")
+        self.model = cfg.get("name", "qwen-plus")
 
     @with_retry(max_attempts=3, backoff=2.0, initial_delay=1.0)
     def chat(

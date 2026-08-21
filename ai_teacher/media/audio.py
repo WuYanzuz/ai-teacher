@@ -9,15 +9,13 @@ from typing import Optional
 
 from ..utils.config import get_settings
 from ..utils.logger import get_logger
+from .ffmpeg_utils import require_ffmpeg
 
 log = get_logger()
 
 
 def _which_ffmpeg() -> str:
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        raise RuntimeError("ffmpeg not found in PATH. Install ffmpeg first.")
-    return ffmpeg
+    return require_ffmpeg()
 
 
 def silk_to_wav(silk_path: Path, out_dir: Path | None = None) -> Path:

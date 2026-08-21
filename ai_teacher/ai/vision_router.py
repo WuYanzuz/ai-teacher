@@ -1,7 +1,12 @@
 """Vision model router.
 
-Picks between Qwen-VL and Doubao (Volcano) at startup based on config.
-Both implementations share the same interface so callers don't care.
+Picks the right vision client at startup based on config.yaml.
+All clients share the same interface so the dispatcher doesn't care.
+
+Supported providers:
+  - "aliyun"  : Aliyun Bailian OpenAI-compatible endpoint (qwen-vl-plus etc.)
+  - "doubao"  : Volcano Ark OpenAI-compatible endpoint (doubao vision models)
+  - "qwen"    : Alibaba DashScope native SDK (qwen-vl-max etc.)
 """
 
 from __future__ import annotations
@@ -24,32 +29,38 @@ class VisionClient(Protocol):
 _client: VisionClient | None = None
 
 
-def get_vision_client() -> VisionClient:
-    """Lazy singleton.
+def _build(provider: str) -> VisionClient:
+    """Construct a vision client for the given provider name."""
+    provider = provider.lower()
 
-    Choice order (config.yaml -> models.vision.provider):
-      - "doubao" / "volc" / "volcano"  -> DoubaoVLClient
-      - "qwen" / "dashscope" (default)  -> QwenVLClient
-    """
+    if provider in ("aliyun", "bailian", "dashscope-openai"):
+        from .openai_vl_client import build_aliyun_vl_client
+        log.info("vision provider: Aliyun Bailian (OpenAI-compatible)")
+        return build_aliyun_vl_client()
+
+    if provider in ("doubao", "volc", "volcano"):
+        try:
+            from .openai_vl_client import build_volcano_vl_client
+            log.info("vision provider: Volcano Ark (OpenAI-compatible)")
+            return build_volcano_vl_client()
+        except Exception as e:
+            log.warning(f"Volcano VL init failed ({e}), fallback to Aliyun")
+            from .openai_vl_client import build_aliyun_vl_client
+            return build_aliyun_vl_client()
+
+    # Default: Aliyun Bailian (OpenAI-compatible)
+    from .openai_vl_client import build_aliyun_vl_client
+    log.info("vision provider: Aliyun Bailian (default)")
+    return build_aliyun_vl_client()
+
+
+def get_vision_client() -> VisionClient:
+    """Lazy singleton. Reads config.yaml -> models.vision.provider."""
     global _client
     if _client is not None:
         return _client
 
     settings = get_settings()
-    provider = (settings.model("vision") or {}).get("provider", "qwen").lower()
-
-    if provider in ("doubao", "volc", "volcano"):
-        try:
-            from .doubao_vl_client import DoubaoVLClient
-            _client = DoubaoVLClient()
-            log.info("vision provider: Doubao (Volcano Ark)")
-        except Exception as e:
-            log.warning(f"Doubao init failed ({e}), fallback to Qwen-VL")
-            from .dashscope_client import QwenVLClient
-            _client = QwenVLClient()
-            log.info("vision provider: Qwen-VL (fallback)")
-    else:
-        from .dashscope_client import QwenVLClient
-        _client = QwenVLClient()
-        log.info("vision provider: Qwen-VL")
+    provider = (settings.model("vision") or {}).get("provider", "aliyun")
+    _client = _build(provider)
     return _client
