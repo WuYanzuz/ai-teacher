@@ -1,7 +1,8 @@
 <view class="container">
   <view class="card">
-    <view class="label">孩子名</view>
+    <view class="label">孩子名 (从班级绑定, 可改)</view>
     <input class="input" placeholder="例如 小明" value="{{childName}}" bindinput="onChangeChild" />
+    <view class="hint">家里有多个孩子在同一班? 直接改成另一个孩子的名字就行</view>
   </view>
 
   <view class="card">

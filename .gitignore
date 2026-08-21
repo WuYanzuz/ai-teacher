@@ -34,6 +34,9 @@ Thumbs.db
 .idea/
 *.iml
 
+# 微信开发者工具自动生成的本地配置
+miniprogram/project.private.config.json
+
 # 测试
 .pytest_cache/
 .coverage

@@ -16,8 +16,8 @@ Page({
   },
 
   onOpenClass(e) {
-    const id = e.currentTarget.dataset.id;
-    wx.navigateTo({ url: `/pages/upload/upload?class_id=${id}` });
+    const { id, child } = e.currentTarget.dataset;
+    wx.navigateTo({ url: `/pages/upload/upload?class_id=${id}&child_name=${encodeURIComponent(child || "")}` });
   },
 
   onJoinClass() {

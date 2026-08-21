@@ -14,7 +14,7 @@
   <view wx:if="{{!classes.length}}" class="empty">还没有加入任何班级</view>
 
   <view wx:for="{{classes}}" wx:key="id" class="card class-card">
-    <view class="row" bindtap="onOpenClass" data-id="{{item.id}}">
+    <view class="row" bindtap="onOpenClass" data-id="{{item.id}}" data-child="{{item.child_name}}">
       <view class="col">
         <view class="title">{{item.name}}</view>
         <view class="subtitle">老师: {{item.teacher_name}}</view>

@@ -6,3 +6,9 @@
   text-align: center;
 }
 .preview image { width: 100%; max-height: 500rpx; }
+.hint {
+  font-size: 24rpx;
+  color: #6B7280;
+  margin-top: 8rpx;
+  line-height: 1.4;
+}
