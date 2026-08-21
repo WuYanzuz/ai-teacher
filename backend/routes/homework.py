@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from ai_teacher.storage.models import Homework
 
 from ..auth import current_user
+from ..config import get_settings
 from ..models import Classroom, Membership, User
 from ..services.ai_pipeline import process_homework
 from ..services.storage import save_upload
@@ -142,14 +143,7 @@ def list_homework(
     qs = qs.order_by(Homework.created_at.desc()).limit(100)
     out = []
     for hw in qs:
-        # Build media URL
-        media_url = None
-        if hw.media_path:
-            try:
-                rel = hw.media_path.replace("\\", "/").split("/uploads/", 1)[1]
-                media_url = f"/media/{rel}"
-            except Exception:
-                media_url = None
+        media_url = _build_media_url(hw.media_path)
         submitter = hw.submit_user.name if hw.submit_user else "?"
         out.append(HomeworkOut(
             id=hw.id, child_name=hw.child.name if hw.child else "?",
@@ -170,16 +164,9 @@ def get_homework(hw_id: int, user: User = Depends(current_user)):
         raise HTTPException(404, "not found")
     if not _can_view(hw, user):
         raise HTTPException(403, "forbidden")
-    media_url = None
-    if hw.media_path:
-        try:
-            rel = hw.media_path.replace("\\", "/").split("/uploads/", 1)[1]
-            media_url = f"/media/{rel}"
-        except Exception:
-            pass
     return HomeworkOut(
         id=hw.id, child_name=hw.child.name if hw.child else "?",
-        media_type=hw.media_type, media_url=media_url,
+        media_type=hw.media_type, media_url=_build_media_url(hw.media_path),
         transcript=hw.raw_transcript, is_homework=bool(hw.is_homework),
         raw_feedback=hw.feedback, polished_feedback=hw.feedback,
         teacher_review=hw.teacher_review,
@@ -306,3 +293,25 @@ def _to_out(hw: Homework, membership: Membership, media_url: str) -> HomeworkOut
         created_at=hw.created_at.isoformat() if hw.created_at else "",
         submitter_name=membership.user.name,
     )
+
+
+def _build_media_url(media_path: str | None) -> str | None:
+    """Build a /media/... URL from an absolute filesystem path.
+
+    media_path is stored as an absolute path (e.g. E:\\aiwechat\\data\\uploads\\20260821\\x.jpg).
+    We compute the relative path under the configured upload_dir.
+    """
+    if not media_path:
+        return None
+    try:
+        from pathlib import Path
+        p = Path(media_path)
+        upload_root = Path(get_settings().upload_dir)
+        try:
+            rel = p.relative_to(upload_root).as_posix()
+        except ValueError:
+            # Path is not under upload_root, fall back to filename
+            rel = p.name
+        return f"/media/{rel}"
+    except Exception:
+        return None
