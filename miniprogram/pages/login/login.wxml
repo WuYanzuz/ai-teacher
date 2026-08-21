@@ -1,5 +1,5 @@
 <view class="container">
-  <view class="title" style="text-align:center;margin:80rpx 0 40rpx;">AI 作业批改小助手</view>
+  <view class="title" style="text-align:center;margin:80rpx 0 40rpx;">作业批改小助手</view>
   <view class="subtitle" style="text-align:center;margin-bottom:80rpx;">选择身份开始使用</view>
 
   <view class="role-row">
@@ -11,7 +11,7 @@
     <view class="role-card {{role==='teacher'?'active':''}}" data-role="teacher" bindtap="onSelectRole">
       <view class="role-emoji">👩‍🏫</view>
       <view class="role-name">我是老师</view>
-      <view class="role-desc">看 AI 点评 + 跟踪</view>
+      <view class="role-desc">看点评 + 跟踪</view>
     </view>
   </view>
 
