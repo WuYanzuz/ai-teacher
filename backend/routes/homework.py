@@ -45,6 +45,10 @@ class IgnoreReq(BaseModel):
     pass
 
 
+class EditFeedbackReq(BaseModel):
+    feedback: str
+
+
 # ---------- Parent: upload ----------
 
 @router.post("/upload", response_model=HomeworkOut)
@@ -217,6 +221,37 @@ def ignore(hw_id: int, user: User = Depends(current_user)):
     if user.role != "teacher" or (hw.classroom and hw.classroom.teacher.id != user.id):
         raise HTTPException(403, "forbidden")
     hw.is_homework = 0
+    hw.save()
+    return get_homework(hw_id, user)
+
+
+@router.post("/{hw_id}/feedback", response_model=HomeworkOut)
+def edit_feedback(hw_id: int, req: EditFeedbackReq, user: User = Depends(current_user)):
+    """Teacher edits the feedback text. The new text overrides the AI's output."""
+    hw = Homework.get_or_none(Homework.id == hw_id)
+    if not hw:
+        raise HTTPException(404, "not found")
+    if user.role != "teacher" or (hw.classroom and hw.classroom.teacher.id != user.id):
+        raise HTTPException(403, "forbidden")
+    new_text = (req.feedback or "").strip()
+    if not new_text:
+        raise HTTPException(400, "feedback cannot be empty")
+    if not hw.teacher_review or "已编辑" not in hw.teacher_review:
+        hw.teacher_review = "✏️ 已编辑"
+    hw.feedback = new_text
+    hw.save()
+    return get_homework(hw_id, user)
+
+
+@router.post("/{hw_id}/reset_feedback", response_model=HomeworkOut)
+def reset_feedback(hw_id: int, user: User = Depends(current_user)):
+    """Mark as not-edited (no revert of the actual text in this MVP)."""
+    hw = Homework.get_or_none(Homework.id == hw_id)
+    if not hw:
+        raise HTTPException(404, "not found")
+    if user.role != "teacher" or (hw.classroom and hw.classroom.teacher.id != user.id):
+        raise HTTPException(403, "forbidden")
+    hw.teacher_review = None
     hw.save()
     return get_homework(hw_id, user)
 

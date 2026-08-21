@@ -75,6 +75,8 @@ module.exports = {
   ackHomework(id) { return request({ url: `/api/homework/${id}/ack`, method: "POST" }); },
   ignoreHomework(id) { return request({ url: `/api/homework/${id}/ignore`, method: "POST" }); },
   renameChild(id, childName) { return request({ url: `/api/homework/${id}/rename`, method: "POST", data: { child_name: childName } }); },
+  editFeedback(id, feedback) { return request({ url: `/api/homework/${id}/feedback`, method: "POST", data: { feedback } }); },
+  resetFeedback(id) { return request({ url: `/api/homework/${id}/reset_feedback`, method: "POST" }); },
 
   // children
   childReport(name, classId) { return request({ url: `/api/children/${encodeURIComponent(name)}/report?class_id=${classId}` }); },

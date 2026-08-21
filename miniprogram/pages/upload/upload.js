@@ -62,7 +62,7 @@ Page({
         wx.hideLoading();
         wx.showModal({
           title: "上传成功 ✓",
-          content: `AI 正在处理, 大约 10-30 秒后老师在「班级」里就能看到点评。`,
+          content: `正在处理, 大约 10-30 秒后老师在「班级」里就能看到点评。`,
           showCancel: false,
           success: () => {
             this.setData({ filePath: "", fileKind: "" });

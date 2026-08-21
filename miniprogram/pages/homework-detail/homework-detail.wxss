@@ -46,3 +46,26 @@
   padding: 32rpx;
   width: 80%;
 }
+.textarea {
+  width: 100%;
+  min-height: 200rpx;
+  background: #F4F6FA;
+  border-radius: 8rpx;
+  padding: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+.edit-row {
+  display: flex;
+  margin-top: 20rpx;
+}
+.edit-row > view { flex: 1; }
+.edited-tag {
+  background: #FEF3C7;
+  color: #92400E;
+  font-size: 22rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+  margin-left: 8rpx;
+}

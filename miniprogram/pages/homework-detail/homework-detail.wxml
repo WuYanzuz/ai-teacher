@@ -26,8 +26,18 @@
   </view>
 
   <view class="card">
-    <view class="label">💬 AI 点评</view>
+    <view class="row" style="margin-bottom:8rpx;">
+      <view class="label" style="margin-bottom:0;">
+        <text wx:if="{{hw.teacher_review && hw.teacher_review.indexOf('已编辑') >= 0}}">💬 老师点评</text>
+        <text wx:else>💬 自动点评</text>
+      </view>
+      <view wx:if="{{hw.teacher_review && hw.teacher_review.indexOf('已编辑') >= 0}}" class="edited-tag">已编辑</view>
+    </view>
     <view class="feedback">{{hw.polished_feedback || '处理中…'}}</view>
+    <view class="edit-row">
+      <view class="btn-secondary" style="flex:1;" bindtap="onShowEdit">✏️ 修改评语</view>
+      <view wx:if="{{hw.teacher_review && hw.teacher_review.indexOf('已编辑') >= 0}}" class="btn-secondary" style="flex:1;margin-left:12rpx;" bindtap="onResetEdit">恢复自动版</view>
+    </view>
   </view>
 
   <view class="actions">
@@ -44,6 +54,19 @@
       <view class="row" style="gap:16rpx;">
         <view class="btn-secondary" style="flex:1;" bindtap="onCancelRename">取消</view>
         <view class="btn-primary" style="flex:1;" bindtap="onConfirmRename">确定</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- edit feedback modal -->
+  <view wx:if="{{showEdit}}" class="modal-mask" bindtap="onCancelEdit">
+    <view class="modal" catchtap="">
+      <view class="title">修改评语</view>
+      <view class="subtitle" style="font-size:24rpx;margin-bottom:12rpx;">家长端会看到你修改后的版本</view>
+      <textarea class="textarea" value="{{editValue}}" bindinput="onEditInput" auto-height />
+      <view class="row" style="gap:16rpx;margin-top:16rpx;">
+        <view class="btn-secondary" style="flex:1;" bindtap="onCancelEdit">取消</view>
+        <view class="btn-primary" style="flex:1;" bindtap="onConfirmEdit">保存</view>
       </view>
     </view>
   </view>
