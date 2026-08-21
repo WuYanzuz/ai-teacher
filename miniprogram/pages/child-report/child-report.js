@@ -6,8 +6,11 @@ Page({
   data: { classId: 0, childName: "", report: null, loading: true },
 
   onLoad(query) {
-    this.setData({ classId: Number(query.class_id), childName: query.child_name });
-    wx.setNavigationBarTitle({ title: query.child_name + " 成长报告" });
+    // query.child_name arrives URL-encoded, decode it
+    let childName = query.child_name || "";
+    try { childName = decodeURIComponent(childName); } catch (e) { /* keep as-is */ }
+    this.setData({ classId: Number(query.class_id), childName });
+    wx.setNavigationBarTitle({ title: childName + " 成长报告" });
     this.load();
   },
 

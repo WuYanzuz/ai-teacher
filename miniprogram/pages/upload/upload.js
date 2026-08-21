@@ -11,9 +11,12 @@ Page({
   },
 
   onLoad(query) {
+    // query.child_name arrives URL-encoded from parent-home, decode it
+    let childName = query.child_name || "";
+    try { childName = decodeURIComponent(childName); } catch (e) { /* keep as-is */ }
     this.setData({
       classId: Number(query.class_id),
-      childName: query.child_name || "",
+      childName,
     });
   },
 
