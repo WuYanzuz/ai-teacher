@@ -110,6 +110,13 @@ Page({
       const fullUrl = (getApp().globalData.apiBase || "") + this.data.hw.media_url;
       wx.previewImage({ urls: [fullUrl] });
     }
-    // Video: handled by the <video> tag's own controls, no action needed
+  },
+
+  onPlayVideo() {
+    if (!this.data.hw || !this.data.hw.media_url) return;
+    const fullUrl = (getApp().globalData.apiBase || "") + this.data.hw.media_url;
+    wx.navigateTo({
+      url: `/pages/video-play/video-play?url=${encodeURIComponent(fullUrl)}`,
+    });
   },
 });

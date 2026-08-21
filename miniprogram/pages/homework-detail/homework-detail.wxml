@@ -14,8 +14,9 @@
     <view wx:if="{{hw.media_url && hw.media_type === 'image'}}" class="media" bindtap="onPreviewMedia">
       <image src="{{hw.media_url}}" mode="aspectFit" />
     </view>
-    <view wx:elif="{{hw.media_url && hw.media_type === 'video'}}" class="media-video">
-      <video src="{{hw.media_url}}" controls show-fullscreen-btn="{{true}}" object-fit="contain" style="width:100%;height:360rpx;background:#000;" />
+    <view wx:elif="{{hw.media_url && hw.media_type === 'video'}}" class="media-video" bindtap="onPlayVideo">
+      <video src="{{hw.media_url}}" controls="{{false}}" show-fullscreen-btn="{{false}}" enable-progress-gesture="{{false}}" object-fit="contain" style="width:100%;height:360rpx;background:#000;" />
+      <view class="play-overlay">▶ 点击全屏播放</view>
     </view>
   </view>
 

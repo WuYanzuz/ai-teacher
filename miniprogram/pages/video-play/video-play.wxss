@@ -1,0 +1,8 @@
+.container { padding: 0; background: #000; }
+.hint {
+  color: #9CA3AF;
+  font-size: 24rpx;
+  text-align: center;
+  padding: 20rpx;
+  background: #1A1A1A;
+}

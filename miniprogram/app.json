@@ -4,6 +4,7 @@
     "pages/teacher-home/teacher-home",
     "pages/class-detail/class-detail",
     "pages/homework-detail/homework-detail",
+    "pages/video-play/video-play",
     "pages/parent-home/parent-home",
     "pages/join-class/join-class",
     "pages/upload/upload",

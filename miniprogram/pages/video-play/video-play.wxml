@@ -1,0 +1,4 @@
+<view class="container">
+  <video src="{{url}}" controls autoplay show-fullscreen-btn="{{true}}" object-fit="contain" style="width:100%;background:#000;" initial-time="0" binderror="onError" bindplay="onPlay" />
+  <view class="hint">点视频可全屏播放</view>
+</view>
