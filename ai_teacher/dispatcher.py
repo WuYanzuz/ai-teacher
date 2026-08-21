@@ -224,15 +224,29 @@ class Dispatcher:
         transcript: str | None,
         feedback: str,
     ) -> None:
-        # Resolve child
-        guess = self.resolver.resolve(msg.sender, group_nickname=msg.content)
+        import time
+        from .teacher.commands import push_recent
+
+        # Resolve child. group_nickname isn't on WeChatMsg for media, so the
+        # resolver falls back to its hash-based default if no binding.
+        guess = self.resolver.resolve(msg.sender, group_nickname=None)
+        if guess.source == "hash":
+            self.notifier.send_ask_child_name(
+                parent_nick=None, parent_wxid=msg.sender, media_type=media_type
+            )
         child = storage_db.upsert_child(
             name=guess.name,
             parent_wxid=msg.sender,
             group_nick=guess.source if guess.source == "nickname" else None,
         )
-        # Build trend hint
-        trend = self._trend_hint(child, feedback)
+        # Look up last feedback for context (only if different from current)
+        last = (
+            storage_db.Homework.select()
+            .where(storage_db.Homework.child == child, storage_db.Homework.is_homework == 1)
+            .order_by(storage_db.Homework.created_at.desc())
+            .first()
+        )
+        last_feedback = last.feedback if (last and last.feedback and last.feedback != feedback) else None
         # Persist
         hw = storage_db.record_homework(
             child=child,
@@ -247,13 +261,22 @@ class Dispatcher:
         if hw is None:
             log.info(f"duplicate msg_id={msg.id}, skip")
             return
+        # Track for teacher ack/ignore/revert commands
+        push_recent({
+            "parent_wxid": msg.sender,
+            "child_name": child.name,
+            "homework_id": hw.id,
+            "msg_id": msg.id,
+            "ts": time.time(),
+        })
         # Send to teacher
         self.notifier.send_homework_feedback(
             child_name=child.name,
+            parent_nick=child.group_nick_pattern,
             media_type=media_type,
             feedback=feedback,
             transcript=transcript,
-            trend=trend,
+            last_feedback=last_feedback,
         )
 
     def _trend_hint(self, child: Child, current_feedback: str) -> str | None:
@@ -275,7 +298,7 @@ class Dispatcher:
     # --------- teacher private commands ---------
 
     def _handle_teacher_command(self, msg: WeChatMsg) -> None:
-        from .teacher.commands import HELP_TEXT, parse_command
+        from .teacher.commands import HELP_TEXT, parse_command, pop_recent
 
         cmd = parse_command(msg.content or "")
         if not cmd:
@@ -283,7 +306,14 @@ class Dispatcher:
         action = cmd.get("action")
         if action == "register":
             self.resolver.register(cmd["wxid"], cmd["name"])
-            self.notifier.send_register_confirmation(cmd["name"], cmd["wxid"])
+            self.notifier.send_register_confirmation(cmd["name"], cmd["wxid"], None)
+        elif action == "bind_nick":
+            # bind a group nickname pattern to a child name
+            child = storage_db.Child.select().where(storage_db.Child.name == cmd["name"]).first()
+            if child:
+                child.group_nick_pattern = cmd["pattern"]
+                child.save()
+            self.notifier.send_register_confirmation(cmd["name"], "(by group nick)", cmd["pattern"])
         elif action == "unregister":
             self.resolver.unregister(cmd["wxid"])
             self.wcf.send_text(f"已解绑 {cmd['wxid']}", self.settings.teacher_wxid)
@@ -297,6 +327,48 @@ class Dispatcher:
             prompt = growth_prompts.build_report_prompt(name, history)
             report = self.text.chat("你是一名幼儿老师,正在为家长准备孩子的成长小结。", prompt, temperature=0.5)
             self.notifier.send_growth_report(name, report)
+        elif action == "ack":
+            entry = pop_recent()
+            if not entry:
+                self.wcf.send_text("最近没有可确认的作业", self.settings.teacher_wxid)
+            else:
+                self.resolver.register(entry["parent_wxid"], entry["child_name"])
+                self.wcf.send_text(
+                    f"✓ 已确认: {entry['child_name']} (家长 {entry['parent_wxid']})",
+                    self.settings.teacher_wxid,
+                )
+        elif action == "ignore":
+            entry = pop_recent()
+            if not entry:
+                self.wcf.send_text("最近没有可忽略的作业", self.settings.teacher_wxid)
+            else:
+                from .storage.models import Homework
+                Homework.update(is_homework=0).where(
+                    Homework.id == entry["homework_id"]
+                ).execute()
+                self.notifier.send_ignored_ack()
+        elif action == "revert":
+            entry = pop_recent()
+            if not entry:
+                self.wcf.send_text("最近没有可撤销的记录", self.settings.teacher_wxid)
+            else:
+                from .storage.models import Homework
+                Homework.delete().where(Homework.id == entry["homework_id"]).execute()
+                self.notifier.send_revert_ack()
+        elif action == "rename":
+            entry = pop_recent()
+            if not entry:
+                self.wcf.send_text("最近没有可改名的作业", self.settings.teacher_wxid)
+            else:
+                new_name = cmd["name"]
+                old_name = entry["child_name"]
+                self.resolver.register(entry["parent_wxid"], new_name)
+                from .storage.models import Child
+                child = Child.select().where(Child.name == old_name).first()
+                if child:
+                    child.name = new_name
+                    child.save()
+                self.notifier.send_rename_confirmation(new_name, entry["parent_wxid"])
         elif action == "help":
             self.wcf.send_text(HELP_TEXT, self.settings.teacher_wxid)
         elif action == "cleanup":
