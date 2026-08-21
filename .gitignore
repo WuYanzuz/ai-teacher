@@ -18,6 +18,7 @@ data/cache/
 data/logs/
 data/*.db
 data/demo/
+data/batch_test/
 
 # 临时文件
 *.tmp
