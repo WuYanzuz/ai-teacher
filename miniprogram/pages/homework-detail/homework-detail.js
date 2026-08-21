@@ -104,13 +104,12 @@ Page({
   },
 
   onPreviewMedia() {
+    // Image: tap to view fullscreen
     if (!this.data.hw || !this.data.hw.media_url) return;
-    const fullUrl = (getApp().globalData.apiBase || "") + this.data.hw.media_url;
     if (this.data.hw.media_type === "image") {
+      const fullUrl = (getApp().globalData.apiBase || "") + this.data.hw.media_url;
       wx.previewImage({ urls: [fullUrl] });
-    } else if (this.data.hw.media_type === "video") {
-      // navigate to inline video page or just show toast
-      wx.navigateTo({ url: `/pages/homework-detail/video?url=${encodeURIComponent(fullUrl)}` });
     }
+    // Video: handled by the <video> tag's own controls, no action needed
   },
 });

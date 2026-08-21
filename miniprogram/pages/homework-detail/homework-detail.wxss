@@ -6,16 +6,13 @@
   margin-top: 12rpx;
 }
 .media image { width: 100%; display: block; }
-.media.video {
-  height: 360rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #7C9CF1;
+.media-video {
+  width: 100%;
+  margin-top: 12rpx;
+  border-radius: 12rpx;
+  overflow: hidden;
+  background: #000;
 }
-.play-icon { font-size: 80rpx; }
-.play-text { font-size: 26rpx; }
 .transcript {
   font-size: 28rpx;
   line-height: 1.6;
