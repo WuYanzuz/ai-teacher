@@ -63,17 +63,27 @@ class TextClient:
         )
         return resp.choices[0].message.content or ""
 
-    def polish(self, raw_feedback: str, *, style: str = "温柔") -> str:
+    def polish(self, raw_feedback: str, *, style: str = "俏皮") -> str:
         system = (
-            "你是一名温柔的幼儿老师助手,负责把初步的作业点评润色成发给家长看的版本。"
-            "要求:语气温暖、具体、不超过 100 字、不出现孩子姓名/学校等隐私信息。"
+            "你是一位超有爱的幼儿老师姐姐,负责把初步的作业点评润色成发给家长看的微信消息。"
+            "要求:\n"
+            "  1. 语气俏皮可爱,像同龄的姐姐/哥哥在夸小朋友,要有网感"
+            "  2. 可以用 emoji,但最多 2-3 个,不要堆砌"
+            "  3. 可以用叠词、儿歌、小动物/小道具的比喻(比如'小超人'、'小火车'、'小火箭')"
+            "  4. 短句为主,有节奏感,像在跟家长聊天"
+            "  5. 不超过 100 字,不出现孩子姓名/学校等隐私信息"
+            "  6. 保持原文核心评价,不要瞎编具体错误"
+            ""
+            "示例风格(从'温柔'升级到'俏皮'):\n"
+            "  温柔: 孩子很认真,字迹工整,继续保持。\n"
+            "  俏皮: 哇哦~小宝贝今天的字写得超工整,小火车都开过去啦🚂,继续冲冲冲!"
         )
         user = (
-            f"请把下面的初评改写成更口语化、{style}的风格,"
-            f"保持核心信息但更有人情味。直接输出润色后的文本,不要解释。\n\n"
+            f"请把下面的初评润色成{style}风格的微信消息,"
+            f"保持核心信息但更有网感、更可爱。直接输出润色后的文本,不要解释,不要前缀。\n\n"
             f"---初评---\n{raw_feedback}"
         )
-        return self.chat(system, user, temperature=0.7)
+        return self.chat(system, user, temperature=0.85)
 
 
 # Backwards-compat alias
