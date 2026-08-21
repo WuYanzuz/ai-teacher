@@ -1,0 +1,24 @@
+.role-row {
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 40rpx;
+}
+.role-card {
+  flex: 1;
+  background: #fff;
+  border: 4rpx solid transparent;
+  border-radius: 20rpx;
+  padding: 40rpx 20rpx;
+  text-align: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+.role-card.active {
+  border-color: #7C9CF1;
+  background: #F4F8FF;
+}
+.role-emoji { font-size: 80rpx; margin-bottom: 16rpx; }
+.role-name { font-size: 32rpx; font-weight: 600; margin-bottom: 8rpx; }
+.role-desc { font-size: 24rpx; color: #6B7280; }
+.input-row { display: flex; align-items: center; margin-bottom: 16rpx; }
+.input-label { width: 100rpx; font-size: 26rpx; color: #6B7280; }
+.input { flex: 1; border: 2rpx solid #E0E5EE; border-radius: 8rpx; padding: 14rpx 16rpx; font-size: 26rpx; }

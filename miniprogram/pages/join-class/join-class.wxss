@@ -1,0 +1,7 @@
+.code-input {
+  font-size: 48rpx;
+  font-weight: 600;
+  letter-spacing: 12rpx;
+  text-align: center;
+  font-family: monospace;
+}

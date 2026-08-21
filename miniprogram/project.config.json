@@ -1,0 +1,11 @@
+{
+  "desc": "Project config for WeChat DevTools",
+  "miniprogramRoot": "miniprogram/",
+  "projectname": "ai-homework-reviewer",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true
+  },
+  "compileType": "miniprogram"
+}

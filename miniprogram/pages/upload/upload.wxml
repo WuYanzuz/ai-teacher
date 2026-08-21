@@ -1,0 +1,26 @@
+<view class="container">
+  <view class="card">
+    <view class="label">孩子名</view>
+    <input class="input" placeholder="例如 小明" value="{{childName}}" bindinput="onChangeChild" />
+  </view>
+
+  <view class="card">
+    <view class="label">选择作业</view>
+    <view class="row" style="gap:16rpx;">
+      <view class="btn-secondary" style="flex:1;" bindtap="onChooseImage">📷 选图片</view>
+      <view class="btn-secondary" style="flex:1;" bindtap="onChooseVideo">🎬 选视频</view>
+    </view>
+
+    <view wx:if="{{filePath}}" class="preview">
+      <image wx:if="{{fileKind==='image'}}" src="{{filePath}}" mode="aspectFit" />
+      <video wx:elif="{{fileKind==='video'}}" src="{{filePath}}" controls style="width:100%;height:400rpx;" />
+    </view>
+  </view>
+
+  <view class="btn-primary" bindtap="onSubmit" style="margin-top:40rpx;">{{uploading ? '上传中...' : '提交给老师'}}</view>
+
+  <view class="card" style="background:#FEF3C7;margin-top:40rpx;">
+    <view class="subtitle" style="color:#92400E;">💡 提示</view>
+    <view class="subtitle" style="color:#92400E;font-size:24rpx;margin-top:8rpx;">视频最长 2 分钟, 图片最大 100MB. AI 处理需要 10-30 秒.</view>
+  </view>
+</view>

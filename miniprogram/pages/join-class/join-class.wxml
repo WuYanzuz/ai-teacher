@@ -1,0 +1,16 @@
+<view class="container">
+  <view class="card">
+    <view class="label">老师给的 6 位加入码</view>
+    <input class="input code-input" placeholder="例如 123456" maxlength="6" value="{{code}}" bindinput="onCodeInput" />
+
+    <view class="label">你的孩子名</view>
+    <input class="input" placeholder="例如 小明" value="{{childName}}" bindinput="onNameInput" />
+
+    <view class="btn-primary" bindtap="onJoin">加入</view>
+  </view>
+
+  <view class="card" style="background:#FEF3C7;">
+    <view class="subtitle" style="color:#92400E;">💡 提示</view>
+    <view class="subtitle" style="color:#92400E;font-size:24rpx;margin-top:8rpx;">加入码由老师在「我的班级」页面生成。点班级卡片上的 6 位数字即可复制。</view>
+  </view>
+</view>

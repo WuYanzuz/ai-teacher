@@ -1,0 +1,6 @@
+.feedback {
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: #2A2A2A;
+  white-space: pre-wrap;
+}

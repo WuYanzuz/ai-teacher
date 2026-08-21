@@ -1,0 +1,26 @@
+<view class="container">
+  <view class="card filter-card">
+    <view class="row">
+      <input class="input filter-input" placeholder="按孩子名筛选 (留空看全部)" value="{{childFilter}}" bindinput="onFilterInput" />
+      <view class="btn-secondary" style="width:160rpx;padding:14rpx 0;margin-left:16rpx;" bindtap="onClearFilter">清除</view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="empty">加载中...</view>
+  <view wx:elif="{{!homework.length}}" class="empty">还没有作业, 等家长上传</view>
+
+  <view wx:for="{{homework}}" wx:key="id" class="card hw-card" data-id="{{item.id}}" bindtap="onOpen">
+    <view class="row" style="margin-bottom:12rpx;">
+      <view class="col">
+        <view style="font-size:30rpx;font-weight:600;">{{item.child_name}}</view>
+        <view class="subtitle">{{item.submitter_name}} · {{item.created_at}}</view>
+      </view>
+      <view class="col" style="align-items:flex-end;">
+        <view class="media-tag">{{item.media_type === 'image' ? '图片' : (item.media_type === 'video' ? '视频' : '语音')}}</view>
+        <view wx:if="{{item.teacher_review}}" class="subtitle" style="font-size:22rpx;color:#10B981;">{{item.teacher_review}}</view>
+      </view>
+    </view>
+    <view class="divider"></view>
+    <view class="feedback">{{item.polished_feedback}}</view>
+  </view>
+</view>

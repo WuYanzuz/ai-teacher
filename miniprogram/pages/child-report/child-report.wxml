@@ -1,0 +1,21 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="empty">加载中...</view>
+  <view wx:elif="{{!report}}" class="empty">暂无历史作业</view>
+  <view wx:else>
+    <view class="card">
+      <view class="title">{{report.child_name}} 成长档案</view>
+      <view class="subtitle">共 {{report.total}} 条作业记录</view>
+    </view>
+
+    <view wx:for="{{report.history}}" wx:key="date" class="card">
+      <view class="row">
+        <view class="col">
+          <view style="font-size:28rpx;font-weight:600;">{{item.date}}</view>
+          <view class="subtitle">{{item.type === 'image' ? '图片' : (item.type === 'video' ? '视频' : '语音')}}</view>
+        </view>
+      </view>
+      <view class="divider"></view>
+      <view class="feedback">{{item.feedback}}</view>
+    </view>
+  </view>
+</view>

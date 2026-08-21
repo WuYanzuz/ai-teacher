@@ -1,0 +1,50 @@
+<view class="container" wx:if="{{hw}}">
+  <view class="card">
+    <view class="row" style="margin-bottom:16rpx;">
+      <view class="col">
+        <view class="title">{{hw.child_name}}</view>
+        <view class="subtitle">{{hw.submitter_name}} · {{hw.created_at}}</view>
+      </view>
+      <view class="col" style="align-items:flex-end;">
+        <view class="tag">{{hw.media_type === 'image' ? '图片' : (hw.media_type === 'video' ? '视频' : '语音')}}</view>
+        <view wx:if="{{hw.teacher_review}}" class="subtitle" style="color:#10B981;">{{hw.teacher_review}}</view>
+      </view>
+    </view>
+
+    <view wx:if="{{hw.media_url && hw.media_type === 'image'}}" class="media" bindtap="onPreviewMedia">
+      <image src="{{hw.media_url}}" mode="aspectFit" />
+    </view>
+    <view wx:elif="{{hw.media_url && hw.media_type === 'video'}}" class="media video" bindtap="onPreviewMedia">
+      <view class="play-icon">▶</view>
+      <view class="play-text">点击播放</view>
+    </view>
+  </view>
+
+  <view wx:if="{{hw.transcript}}" class="card">
+    <view class="label">🎙️ 语音转写</view>
+    <view class="transcript">{{hw.transcript}}</view>
+  </view>
+
+  <view class="card">
+    <view class="label">💬 AI 点评</view>
+    <view class="feedback">{{hw.polished_feedback || '处理中…'}}</view>
+  </view>
+
+  <view class="actions">
+    <view class="btn-primary" bindtap="onAck">✓ 确认归属</view>
+    <view class="btn-secondary" bindtap="onShowRename">改名</view>
+    <view class="btn-secondary" bindtap="onIgnore" style="color:#DC2626;border-color:#DC2626;">忽略</view>
+  </view>
+
+  <!-- rename modal -->
+  <view wx:if="{{showRename}}" class="modal-mask" bindtap="onCancelRename">
+    <view class="modal" catchtap="">
+      <view class="title">改名</view>
+      <input class="input" value="{{renameValue}}" bindinput="onRenameInput" />
+      <view class="row" style="gap:16rpx;">
+        <view class="btn-secondary" style="flex:1;" bindtap="onCancelRename">取消</view>
+        <view class="btn-primary" style="flex:1;" bindtap="onConfirmRename">确定</view>
+      </view>
+    </view>
+  </view>
+</view>

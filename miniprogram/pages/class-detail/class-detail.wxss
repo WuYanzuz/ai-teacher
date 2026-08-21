@@ -1,0 +1,18 @@
+.filter-card { padding: 20rpx 24rpx; }
+.filter-input { margin-bottom: 0; }
+.hw-card { padding: 24rpx; }
+.media-tag {
+  display: inline-block;
+  background: #EEF2FF;
+  color: #5B6BCE;
+  border-radius: 8rpx;
+  padding: 4rpx 16rpx;
+  font-size: 24rpx;
+  margin-bottom: 8rpx;
+}
+.feedback {
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: #2A2A2A;
+  white-space: pre-wrap;
+}

@@ -17,8 +17,10 @@ secrets.yaml
 data/cache/
 data/logs/
 data/*.db
+data/*.md
 data/demo/
 data/batch_test/
+data/uploads/
 
 # 临时文件
 *.tmp

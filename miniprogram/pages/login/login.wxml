@@ -1,0 +1,36 @@
+<view class="container">
+  <view class="title" style="text-align:center;margin:80rpx 0 40rpx;">AI 作业批改小助手</view>
+  <view class="subtitle" style="text-align:center;margin-bottom:80rpx;">选择身份开始使用</view>
+
+  <view class="role-row">
+    <view class="role-card {{role==='parent'?'active':''}}" data-role="parent" bindtap="onSelectRole">
+      <view class="role-emoji">👨‍👩‍👧</view>
+      <view class="role-name">我是家长</view>
+      <view class="role-desc">上传作业视频/图片</view>
+    </view>
+    <view class="role-card {{role==='teacher'?'active':''}}" data-role="teacher" bindtap="onSelectRole">
+      <view class="role-emoji">👩‍🏫</view>
+      <view class="role-name">我是老师</view>
+      <view class="role-desc">看 AI 点评 + 跟踪</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="label">开发模式</view>
+    <view class="subtitle" style="font-size:24rpx;">本地测试用 dev_login, 自动创建用户</view>
+    <view class="input-row">
+      <text class="input-label">openid</text>
+      <input class="input" data-k="devOpenid" value="{{devOpenid}}" bindinput="onInput" />
+    </view>
+    <view class="input-row">
+      <text class="input-label">姓名</text>
+      <input class="input" data-k="devName" value="{{devName}}" bindinput="onInput" />
+    </view>
+    <view class="btn-primary" bindtap="onLogin" style="margin-top:20rpx;">登录</view>
+  </view>
+
+  <view class="card">
+    <view class="label">正式环境 (需要后端配置 WX_APPID/WX_SECRET)</view>
+    <view class="btn-secondary" bindtap="onWxLogin">用微信登录</view>
+  </view>
+</view>

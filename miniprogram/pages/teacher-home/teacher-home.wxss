@@ -1,0 +1,8 @@
+.class-card { padding: 30rpx 24rpx; }
+.join-code {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #7C9CF1;
+  letter-spacing: 8rpx;
+  font-family: monospace;
+}
