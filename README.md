@@ -14,6 +14,12 @@
 - **前端**: 微信小程序原生（无第三方框架）
 - **认证**: 微信 code2session（生产）+ dev_login（本地开发）
 
+## 文档
+
+- [开发指南](docs/开发指南.md) — 项目结构、请求流转、常见开发任务、调试、部署
+- [Python 速查 · 给 Java 开发者](docs/Python速查-给Java开发者.md) — Java↔Python 语法对照、Spring Boot↔FastAPI 对照、常见坑
+
+
 ## 目录结构
 
 ```
