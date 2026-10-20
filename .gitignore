@@ -13,10 +13,12 @@ env/
 *.env.local
 secrets.yaml
 
-# 运行时数据
+# 运行时数据（整个目录兜底：db、备份、wal/shm、上传与缓存都不进 git）
+data/
 data/cache/
 data/logs/
 data/*.db
+data/*.db.bak*
 data/*.md
 data/demo/
 data/batch_test/

@@ -13,6 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from sqlalchemy import delete, select, update
+
 from .ai.classifier import HomeworkClassifier
 from .ai.deepseek_client import TextClient as DeepSeekClient
 from .ai.paraformer_client import ParaformerClient
@@ -23,7 +25,8 @@ from .media import video as video_mod
 from .media.image import compress_image
 from .prompts import growth as growth_prompts
 from .storage import db as storage_db
-from .storage.models import Child
+from .storage.database import session_scope
+from .storage.models import Child, Homework
 from .teacher.notifier import TeacherNotifier
 from .utils.config import get_settings
 from .utils.helpers import safe_filename
@@ -240,12 +243,13 @@ class Dispatcher:
             group_nick=guess.source if guess.source == "nickname" else None,
         )
         # Look up last feedback for context (only if different from current)
-        last = (
-            storage_db.Homework.select()
-            .where(storage_db.Homework.child == child, storage_db.Homework.is_homework == 1)
-            .order_by(storage_db.Homework.created_at.desc())
-            .first()
-        )
+        with session_scope() as s:
+            last = s.scalars(
+                select(Homework)
+                .where(Homework.child_id == child.id, Homework.is_homework == 1)
+                .order_by(Homework.created_at.desc())
+                .limit(1)
+            ).first()
         last_feedback = last.feedback if (last and last.feedback and last.feedback != feedback) else None
         # Persist
         hw = storage_db.record_homework(
@@ -280,16 +284,14 @@ class Dispatcher:
         )
 
     def _trend_hint(self, child: Child, current_feedback: str) -> str | None:
-        from peewee import fn
-
-        prev = (
-            storage_db.Homework.select()
-            .where(storage_db.Homework.child == child, storage_db.Homework.is_homework == 1)
-            .order_by(storage_db.Homework.created_at.desc())
-            .offset(1)
-            .limit(1)
-            .first()
-        )
+        with session_scope() as s:
+            prev = s.scalars(
+                select(Homework)
+                .where(Homework.child_id == child.id, Homework.is_homework == 1)
+                .order_by(Homework.created_at.desc())
+                .offset(1)
+                .limit(1)
+            ).first()
         if not prev or not prev.feedback:
             return "首次记录,无对比"
         # Very rough heuristic: if both have a "建议" segment, compare length
@@ -309,17 +311,18 @@ class Dispatcher:
             self.notifier.send_register_confirmation(cmd["name"], cmd["wxid"], None)
         elif action == "bind_nick":
             # bind a group nickname pattern to a child name
-            child = storage_db.Child.select().where(storage_db.Child.name == cmd["name"]).first()
-            if child:
-                child.group_nick_pattern = cmd["pattern"]
-                child.save()
+            with session_scope() as s:
+                child = s.scalars(select(Child).where(Child.name == cmd["name"])).first()
+                if child:
+                    child.group_nick_pattern = cmd["pattern"]
             self.notifier.send_register_confirmation(cmd["name"], "(by group nick)", cmd["pattern"])
         elif action == "unregister":
             self.resolver.unregister(cmd["wxid"])
             self.wcf.send_text(f"已解绑 {cmd['wxid']}", self.settings.teacher_wxid)
         elif action == "report":
             name = cmd["name"]
-            child = storage_db.Child.select().where(storage_db.Child.name == name).first()
+            with session_scope() as s:
+                child = s.scalars(select(Child).where(Child.name == name)).first()
             if not child:
                 self.wcf.send_text(f"未找到孩子: {name}", self.settings.teacher_wxid)
                 return
@@ -342,18 +345,22 @@ class Dispatcher:
             if not entry:
                 self.wcf.send_text("最近没有可忽略的作业", self.settings.teacher_wxid)
             else:
-                from .storage.models import Homework
-                Homework.update(is_homework=0).where(
-                    Homework.id == entry["homework_id"]
-                ).execute()
+                with session_scope() as s:
+                    s.execute(
+                        update(Homework)
+                        .where(Homework.id == entry["homework_id"])
+                        .values(is_homework=0)
+                    )
                 self.notifier.send_ignored_ack()
         elif action == "revert":
             entry = pop_recent()
             if not entry:
                 self.wcf.send_text("最近没有可撤销的记录", self.settings.teacher_wxid)
             else:
-                from .storage.models import Homework
-                Homework.delete().where(Homework.id == entry["homework_id"]).execute()
+                with session_scope() as s:
+                    s.execute(
+                        delete(Homework).where(Homework.id == entry["homework_id"])
+                    )
                 self.notifier.send_revert_ack()
         elif action == "rename":
             entry = pop_recent()
@@ -363,11 +370,12 @@ class Dispatcher:
                 new_name = cmd["name"]
                 old_name = entry["child_name"]
                 self.resolver.register(entry["parent_wxid"], new_name)
-                from .storage.models import Child
-                child = Child.select().where(Child.name == old_name).first()
-                if child:
-                    child.name = new_name
-                    child.save()
+                with session_scope() as s:
+                    child = s.scalars(
+                        select(Child).where(Child.name == old_name)
+                    ).first()
+                    if child:
+                        child.name = new_name
                 self.notifier.send_rename_confirmation(new_name, entry["parent_wxid"])
         elif action == "help":
             self.wcf.send_text(HELP_TEXT, self.settings.teacher_wxid)

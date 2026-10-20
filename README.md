@@ -1,6 +1,6 @@
-# 作业批改助手（微信小程序）
+# 作业批改 + 成长记录（微信小程序）
 
-> 帮幼儿园/小学低年级老师批改作业的小程序。家长上传作业视频/图片，系统自动生成点评，老师审核修改后家长可见。非商业项目。
+> 帮幼儿园/小学低年级老师批改作业、记录孩子在园日常的小程序。家长上传作业视频/图片，系统自动生成点评，老师审核修改后家长可见；老师还能给每个孩子快速打卡（吃饭/午睡/情绪等），并一键批量生成每个孩子的 AI 日报/周报。非商业项目。
 
 ---
 
@@ -27,7 +27,7 @@
  │                                   │
  ├─ 建班级 → 拿到 6 位加入码 ────────→ 输入加入码 + 孩子名，加入班级
  │                                   │
- │                                   ├─ 拍作业（图片/视频）
+ │  作业线                            ├─ 拍作业（图片/视频）
  │                                   └─ 上传
  │                                        ↓
  │                              系统自动处理（8~20 秒）
@@ -35,12 +35,18 @@
  │                                        ↓
  ├─ 班级页看到新作业 + 点评              │
  ├─ 确认归属 / 改孩子名 / 忽略误判       │
- ├─ 【修改评语】改成自己的话 ──────────→ 家长在成长报告里看到老师的最终版
+ ├─ 【修改评语】改成自己的话 ──────────→ 家长在成长档案里看到老师的最终版
+ │                                   │
+ │  成长记录线                          │
+ ├─ 日常打卡：点选项快速记录每个孩子      │
+ │  （吃饭/午睡/情绪/喝水/如厕/活动）     │
+ ├─ 选日期 → 一键批量生成每孩日报/周报    │
+ ├─ 逐份查看/修改 → 发布 ─────────────→ 家长成长档案看到报告 + 在园打卡
  │                                   │
  └─ 按孩子查看成长轨迹                 └─ 查看自家孩子历史
 ```
 
-**设计原则：老师是最终把关人。** 系统只出初稿，老师改完才算数。产品界面上不出现「AI」字样——家长看到的是老师的点评，不是机器的。
+**设计原则：老师是最终把关人。** 系统只出初稿（作业点评、日报周报都是），老师改完、发布后家长才看得到。产品界面上不出现「AI」字样——家长看到的是老师的点评和报告，不是机器的。
 
 ---
 
@@ -52,9 +58,9 @@
 └──────────┬───────────┘
            │ HTTP + Bearer Token
 ┌──────────▼───────────┐
-│  FastAPI (backend/)  │  路由、鉴权、班级/作业 CRUD
+│  FastAPI (backend/)  │  路由、鉴权、班级/作业/打卡/报告
 └──────────┬───────────┘
-           │ 后台任务
+           │ 后台任务（作业 AI 流水线、批量报告生成）
 ┌──────────▼───────────┐
 │  ai_teacher/         │  AI 能力层，可脱离 HTTP 独立运行
 │  ├─ 视觉：通义千问 VL（阿里百炼）
@@ -62,11 +68,15 @@
 │  ├─ 文本：ark-code-latest（火山方舟）
 │  └─ 媒体：ffmpeg 抽帧 / Pillow 压缩
 └──────────┬───────────┘
-           │
+           │  SQLAlchemy 2.x（python-oracledb 瘦模式）
 ┌──────────▼───────────┐
-│  SQLite + 本地文件     │
+│  Oracle 19c+（独立 schema AIWECHAT）│
+│  本地开发可切 SQLite（config.yaml）  │
+│  媒体原件仍在本地 data/uploads/      │
 └──────────────────────┘
 ```
+
+**数据库**：生产用 Oracle（ORM 是 SQLAlchemy 2.x，通过 `oracledb` 瘦模式直连，免装 Instant Client）；本地开发把 `config.yaml` 的 `database.dialect` 设为 `sqlite` 即可零依赖跑起来。两种方言同一套模型。
 
 **为什么是小程序**：项目最初做的是微信群机器人（wcferry hook PC 微信，自动监听家长群）。2026 年微信封禁了旧版客户端登录，hook 类方案整体失效，于是改成小程序。AI 流水线（`ai_teacher/`）完全复用，只换了接入层。
 
@@ -112,8 +122,17 @@ notepad .env
 | `ALIYUN_OSS_KEY_ID` / `_SECRET` / `_BUCKET` / `_ENDPOINT` | 语音转写需把音频临时放公网 URL | ✅ 有语音作业时 |
 | `WX_APPID` / `WX_SECRET` | 微信正式登录 | 生产环境 |
 | `ENABLE_DEV_LOGIN` | 开发登录后门，生产设 `0` | 默认 `1` |
+| `ORACLE_PASSWORD` / `ORACLE_DSN` | Oracle 连接（dialect=oracle 时）；DSN 可整体覆盖 host/port/service_name | 仅 Oracle |
 
 模型选择在 `config.yaml`（可换 provider，不用改代码）。
+
+**数据库**：`config.yaml` 里 `database.dialect` 默认为 `sqlite`，本地零配置直接跑（`data/ai_teacher.db`，首次启动自动建表）。
+
+接生产 Oracle（19c+）：
+1. DBA 执行 [scripts/sql/01_oracle_schema.sql](scripts/sql/01_oracle_schema.sql)：建表空间 + 独立用户 `AIWECHAT`（改好脚本里的密码）；多租户库要连 **PDB**（如 XEPDB1），不要连 CDB\$ROOT。
+2. `.env` 填 `ORACLE_PASSWORD`，`config.yaml` 改 `database.dialect: oracle` 及 host/port/service_name。
+3. `python scripts/check_oracle.py` 验证连通和权限；首次启动后端会自动建表（或 `--create-tables`）。
+4. 从旧 SQLite 迁数据：停服备份后 `python scripts/migrate_sqlite_to_oracle.py`（源库只读，可重复跑）。
 
 ### 3. 启动后端
 
@@ -176,8 +195,9 @@ aiwechat/
 │   │   ├── grader.py             ★ 点评提示词（最常改的文件）
 │   │   └── growth.py             成长报告提示词
 │   ├── storage/
-│   │   ├── models.py             Child / Homework / GrowthMetric
-│   │   └── db.py                 初始化、查询、清理
+│   │   ├── database.py           ★ engine/session/Base（Oracle & SQLite 双方言）
+│   │   ├── models.py             Child / Homework / GrowthMetric（SQLAlchemy）
+│   │   └── db.py                 初始化、查询 helper（遗留机器人也用它）
 │   ├── utils/                    config / logger / retry / ratelimit
 │   └── ── 以下为遗留（微信群机器人时代，小程序架构未使用）──
 │       ├── wcf_client.py         wcferry 封装
@@ -188,33 +208,42 @@ aiwechat/
 │
 ├── backend/                 Web 层
 │   ├── main.py              FastAPI 应用 + 路由注册 + 静态文件
-│   ├── models.py            User / Classroom / Membership / AuthToken
-│   ├── db.py                建表 + 列迁移
+│   ├── models.py            ★ 全部 13 张表（SQLAlchemy，唯一规范出处）
+│   ├── db.py                建表 + 打卡模板种子
 │   ├── auth.py              Token 签发校验 + 微信 code2session
 │   ├── config.py            读 .env
 │   ├── routes/
 │   │   ├── auth.py          登录
-│   │   ├── classes.py       班级
+│   │   ├── classes.py       班级 + 孩子花名册
 │   │   ├── homework.py      ★ 作业（上传、列表、审核、改评语）
-│   │   └── children.py      成长报告
+│   │   ├── children.py      作业成长历史
+│   │   ├── checkin.py       ★ 日常打卡（模板/回显/整组覆盖/家长查看）
+│   │   └── reports.py       ★ AI 日报周报（批次/编辑/发布/重试）
 │   └── services/
 │       ├── storage.py       文件落盘
-│       └── ai_pipeline.py   ★ 编排 AI 调用
+│       ├── ai_pipeline.py   编排作业 AI 调用
+│       ├── growth_templates.py  打卡维度选项默认值 + 幂等种子
+│       ├── report_prompts.py    日报周报提示词（纯函数）
+│       └── report_service.py    ★ 批次状态机 + 逐孩 LLM 生成 + 重启恢复
 │
-├── miniprogram/             微信小程序（9 个页面）
+├── miniprogram/             微信小程序（13 个页面）
 │   ├── app.js               全局状态、登录态、apiBase
 │   ├── app.json             页面注册（★ 新页面必须在这登记）
 │   ├── utils/api.js         所有接口封装
 │   └── pages/
 │       ├── login/               身份选择 + 登录
 │       ├── teacher-home/        老师：班级列表、建班
-│       ├── class-detail/        老师：作业流、按孩子筛选
+│       ├── class-detail/        老师：作业流 + 打卡/报告入口
 │       ├── homework-detail/     老师：详情、审核、改评语
 │       ├── video-play/          视频全屏播放
 │       ├── parent-home/         家长：已加入班级
 │       ├── join-class/          家长：输入加入码
 │       ├── upload/              家长：选图/视频并提交
-│       └── child-report/        孩子成长历史
+│       ├── child-report/        家长：报告 + 打卡 + 作业三段式成长档案
+│       ├── checkin/             老师：选日期，全班已打卡/未打卡
+│       ├── checkin-edit/        老师：点选项快速记录一个孩子
+│       ├── report-batch/        老师：批量生成日报/周报、进度、发布
+│       └── report-detail/       报告详情（老师编辑发布/家长只读）
 │
 ├── docs/
 │   ├── 开发指南.md                项目结构、常见任务、调试、部署
@@ -223,7 +252,12 @@ aiwechat/
 ├── scripts/
 │   ├── demo_pipeline.py     单文件跑完整 AI 链路，打印每步耗时
 │   ├── batch_test.py        批量跑一个目录，生成对比报告
-│   ├── e2e_backend_test.py  后端全链路测试
+│   ├── e2e_backend_test.py  后端全链路测试（真实服务）
+│   ├── test_checkin_reports.py  打卡+报告接口集成测试（mock LLM，临时库）
+│   ├── check_oracle.py      Oracle 连通自检 / --dump-ddl / --create-tables
+│   ├── migrate_sqlite_to_oracle.py  SQLite→Oracle 数据迁移
+│   ├── sql/01_oracle_schema.sql    建表空间 + AIWECHAT 用户
+│   ├── sql/02_create_tables.sql    元数据渲染的建表 DDL（供 DBA 审核）
 │   └── first_run_check.py   环境自检
 │
 ├── config.yaml              模型配置（provider、模型名、温度、抽帧数）
@@ -231,8 +265,8 @@ aiwechat/
 ├── .env / .env.example      密钥（.env 不进 git）
 ├── test/                    测试媒体（gitignored，含孩子数据）
 └── data/                    运行时（gitignored）
-    ├── ai_teacher.db        SQLite
-    ├── uploads/             家长上传的作业原件
+    ├── ai_teacher.db        SQLite（仅 dialect=sqlite 本地开发用）
+    ├── uploads/             家长上传的作业原件（不迁库，换机直接拷目录）
     ├── cache/               ffmpeg 抽帧等临时文件
     └── logs/
 ```
@@ -291,6 +325,32 @@ Base URL: `http://<host>:8000`
 | POST | `/api/homework/{id}/feedback` | 老师 | **改评语，家长看到的是改后版本** |
 | POST | `/api/homework/{id}/reset_feedback` | 老师 | 清除「已编辑」标记 |
 
+### 成长打卡
+
+| 方法 | 路径 | 角色 | 说明 |
+|---|---|---|---|
+| GET | `/api/classes/{id}/children` | 双方 | 班级孩子花名册（去重） |
+| GET | `/api/checkin/template` | 双方 | 6 个维度 + 快捷选项 |
+| GET | `/api/checkin/day?class_id&date` | 双方 | 全班当日已打/未打 |
+| GET | `/api/checkin?class_id&date&child_name` | 双方 | 回显某孩当日打卡 |
+| PUT | `/api/checkin` | 老师 | 整组覆盖保存（幂等，重复提交=更新） |
+| GET | `/api/checkin/child?class_id&child_name&start&end` | 双方 | 某孩日期区间打卡（家长仅自家） |
+
+### 日报 / 周报
+
+| 方法 | 路径 | 角色 | 说明 |
+|---|---|---|---|
+| POST | `/api/reports/batches` | 老师 | 批量生成每孩一份；同周期重复调返回既有批次；`regenerate` 重跑（有已发布则 409） |
+| GET | `/api/reports/batches/{id}` | 双方 | 批次进度（x/total + 每孩状态），轮询用 |
+| POST | `/api/reports/batches/{id}/publish_all` | 老师 | 一键发布全部成功报告 |
+| GET | `/api/reports/{id}` | 老师/家长 | 报告详情（家长仅已发布且自家） |
+| POST | `/api/reports/{id}/edit` | 老师 | 修改定稿（家长看到改后版本） |
+| POST | `/api/reports/{id}/publish` / `unpublish` | 老师 | 发布 / 撤回 |
+| POST | `/api/reports/{id}/retry` | 老师 | 单份失败重试 |
+| GET | `/api/reports/child?class_id&child_name` | 双方 | 某孩报告列表（家长仅已发布） |
+
+后台任务逐孩顺序生成（防限流），单个孩子失败不影响整批，批次状态为 done/partial/failed。
+
 ### 其他
 
 | 方法 | 路径 | 说明 |
@@ -305,28 +365,43 @@ Base URL: `http://<host>:8000`
 ## 数据模型
 
 ```
-user ──┬──< classroom          老师建的班（teacher_id）
-       └──< membership         家长的加入记录（user_id + child_name）
-                │
-classroom ──────┼──< membership
-                └──< homework   作业归属哪个班
+app_user ──┬──< classroom        老师建的班（teacher_id）
+           └──< membership       家长的加入记录（user_id + child_name）
+                  │
+classroom ────────┼──< membership
+                  ├──< homework        作业（classroom_id + 冗余 child_name）
+                  ├──< growth_checkin  每日打卡头（班级+孩子+日期 唯一）
+                  │      └──< growth_checkin_item  各维度选中的选项
+                  ├──< report_batch    日报/周报批次（班级+类型+周一/当天 唯一）
+                  │      └──< child_report   每孩一份（content AI稿 / teacher_edit 定稿）
+                  └──< growth_template(option)  打卡维度与快捷选项（NULL=系统内置）
 
-child ─────────────< homework   作业归属哪个孩子
-homework ──────────< growth_metric
+child ─────────────< homework        作业归属哪个孩子（全局名字表，遗留）
+homework ──────────< growthmetric
 ```
+
+共 13 张表。关键约定：
 
 | 表 | 关键字段 |
 |---|---|
-| `user` | openid（唯一）、role（parent/teacher）、name |
+| `app_user` | 表名避开 Oracle 保留字 `user`；openid（唯一）、role（parent/teacher）、name |
 | `classroom` | name、code（6 位加入码，唯一）、teacher_id |
 | `membership` | user_id + classroom_id（唯一约束）、child_name |
-| `auth_token` | token、user_id、expires_at |
-| `child` | name、parent_wxid、first_seen / last_seen |
-| `homework` | child_id、classroom_id、submit_user_id、media_type、media_path、raw_transcript、**is_homework**（0=判定非作业）、**feedback**（最终点评，老师改过就是老师的版本）、**teacher_review**（审核标记） |
+| `auth_token` | token、user_id、expires_at（迁移后 token 不变，家长免重登） |
+| `child` | name、parent_wxid（可空；Oracle 里 `''` 即 NULL） |
+| `homework` | child_id、classroom_id、submit_user_id、**child_name**（班级作用域冗余列）、is_homework（0/1）、feedback（最终点评）、teacher_review（审核标记） |
+| `growth_checkin` | classroom_id + child_name + checkin_date 唯一；一班一孩一天一条 |
+| `growth_checkin_item` | checkin_id + category_code + option_label 唯一；多选取值拆多行 |
+| `report_batch` | status（pending/running/done/partial/failed）、total/succeeded/failed_count |
+| `child_report` | content（AI 稿）、teacher_edit（老师定稿，家长看 COALESCE 后版本）、is_published |
 
-**注意**：`feedback` 字段既存 AI 初稿也存老师改后的内容，被覆盖后原文不可恢复。`teacher_review` 含「已编辑」表示老师改过。如果以后要保留 AI 原文对比，需要加一列。
+**注意**：
+- `homework.feedback` 既存 AI 初稿也存老师改后的内容，覆盖后原文不可恢复；`teacher_review` 含「已编辑」表示老师改过。
+- 打卡/报告全部按 `classroom_id + child_name` 作用域，**不依赖全局 `child` 表**（不同班同名孩子不会串数据）。
+- 日报/周报必须老师**发布**后家长才可见；已发布的批次默认禁止 regenerate（409），先撤回再重跑。
+- Oracle 类型：主键 `GENERATED BY DEFAULT AS IDENTITY`（迁移时可显式插 id）、字符串 `VARCHAR2(n CHAR)`、长文本 CLOB。
 
-数据库文件：`data/ai_teacher.db`，可用 [DB Browser for SQLite](https://sqlitebrowser.org/) 打开查看。
+本地 SQLite：`data/ai_teacher.db`（仅 dialect=sqlite 时）。Oracle 用 SQL Developer 以 AIWECHAT 用户登录查看。
 
 ---
 
@@ -345,6 +420,13 @@ python scripts\batch_test.py test\
 # 后端全链路（需先启动服务）
 # 老师登录→建班→家长登录→加入→上传→等 AI→查看→确认
 python scripts\e2e_backend_test.py
+
+# 打卡 + 日报周报接口集成测试（mock 掉 LLM，临时 SQLite 库，跑完自删）
+python scripts\test_checkin_reports.py
+
+# Oracle 连通自检 / 导出 DDL
+python scripts\check_oracle.py
+python scripts\check_oracle.py --dump-ddl
 
 # 环境自检
 python scripts\first_run_check.py
@@ -384,12 +466,13 @@ python -m pytest ai_teacher/tests/ -v
 
 | 问题 | 影响 | 解决方向 |
 |---|---|---|
+| 批量报告用 FastAPI BackgroundTasks | 服务重启时 running 的批次会中断（启动时自动置 failed，可重新生成/单份重试），不持久化 | 用户量上来换 Celery/RQ + 队列 |
+| 报告逐孩顺序生成 | 30 人约 5–15 分钟（避模型限流）；单孩失败不影响其他，状态 partial | 需要更快可小并发 + 限流 |
 | 限流器在内存里 | `--workers >1` 时每个进程各算各的 | 换 Redis 或数据库计数 |
-| SQLite 并发写有锁 | 用户量上来会阻塞 | 换 PostgreSQL（peewee 换 Database 对象即可，模型不用动） |
 | `data/uploads/` 只增不减 | 磁盘会满 | `ai_teacher/storage/db.py` 有 `cleanup_old_cache()`，需接定时任务 |
 | 老师改评语会覆盖原文 | AI 初稿不可恢复 | 加一列存原文 |
-| 表结构变更靠手写 ALTER | 容易漏 | 引入 `peewee-migrate` |
-| 无消息推送 | 老师要自己进小程序看 | 接微信订阅消息 |
+| 表结构变更靠 create_all | 只建新表，不做列级迁移 | 引入 Alembic |
+| 无消息推送 | 报告生成完老师要自己进小程序看 | 接微信订阅消息 |
 | 语音识别依赖 OSS | 多一跳、多一份配置 | 阿里的文件转写 API 只收公网 URL，暂无更好方案 |
 
 ---
@@ -401,6 +484,13 @@ python -m pytest ai_teacher/tests/ -v
 ```bash
 pip install -r requirements.txt
 
+# 1) 建 Oracle schema（DBA 执行，改好脚本里的密码）
+#    sqlplus system/***@//host:1521/XEPDB1 @scripts/sql/01_oracle_schema.sql
+# 2) .env 填 ORACLE_PASSWORD；config.yaml: database.dialect=oracle
+python scripts/check_oracle.py            # 连通 + 权限自检
+# 3) 从旧 SQLite 迁历史数据（首次切换时；源库只读，可重复执行）
+python scripts/migrate_sqlite_to_oracle.py
+
 # 关掉开发登录后门（重要）
 echo "ENABLE_DEV_LOGIN=0" >> .env
 
@@ -410,6 +500,8 @@ echo "ENABLE_DEV_LOGIN=0" >> .env
 
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
+
+首次启动会自动 create_all 建表并播种 6 个打卡维度模板。服务器时区固定 Asia/Shanghai（周报按周一归一算）。
 
 前面挂 Nginx 做 HTTPS（微信小程序强制要求）。服务器 2C2G 起步够用。
 

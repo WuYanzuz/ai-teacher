@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import secrets
-import time
 from datetime import datetime, timedelta
 from typing import Optional
 
 import requests
+from fastapi import Depends, Header, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from ai_teacher.storage.models import db
+from ai_teacher.storage.database import get_db
 
 from .config import get_settings
 from .models import AuthToken, User
@@ -19,25 +21,28 @@ settings = get_settings()
 
 # ---------- Token ----------
 
-def issue_token(user: User, ttl_days: int = 30) -> str:
+def issue_token(db: Session, user: User, ttl_days: int = 30) -> str:
     """Create a new auth token for the user."""
     token = secrets.token_urlsafe(32)
-    AuthToken.create(
+    db.add(AuthToken(
         token=token,
         user=user,
         created_at=datetime.now(),
         expires_at=datetime.now() + timedelta(days=ttl_days),
-    )
+    ))
+    db.commit()
     return token
 
 
-def get_user_by_token(token: str) -> Optional[User]:
+def get_user_by_token(db: Session, token: str) -> Optional[User]:
     """Resolve a bearer token to a User, or None if invalid/expired."""
     if not token:
         return None
-    try:
-        row = AuthToken.get(AuthToken.token == token)
-    except AuthToken.DoesNotExist:
+    row = db.scalar(
+        select(AuthToken)
+        .where(AuthToken.token == token)
+    )
+    if not row:
         return None
     if row.expires_at and row.expires_at < datetime.now():
         return None
@@ -46,18 +51,18 @@ def get_user_by_token(token: str) -> Optional[User]:
 
 # ---------- FastAPI dependency ----------
 
-from fastapi import Header, HTTPException, status
-
-
-async def current_user(authorization: Optional[str] = Header(None)) -> User:
-    """FastAPI dependency: extract bearer token, return User or 401."""
+def current_user(
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(None),
+) -> User:
+    """Extract bearer token, return User or 401."""
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="missing bearer token",
         )
     token = authorization.split(" ", 1)[1].strip()
-    user = get_user_by_token(token)
+    user = get_user_by_token(db, token)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

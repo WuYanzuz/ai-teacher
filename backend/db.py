@@ -1,34 +1,34 @@
-"""Database initialization and helpers for the backend."""
+"""Database initialization for the backend."""
 
 from __future__ import annotations
 
-from ai_teacher.storage.db import init_db
-from ai_teacher.storage.models import ALL_TABLES
-
-from .models import ALL_NEW_TABLES, _patch_homework
+from ai_teacher.storage.database import (
+    Base,
+    get_engine,
+    migrate_dev_sqlite,
+)
 
 
 def init_backend_db() -> None:
-    """Create all tables (existing + new). Idempotent."""
-    init_db()  # existing tables
-    _patch_homework()
-    # peewee: add columns to existing tables that don't have them
-    from ai_teacher.storage.models import Homework, db
-    for col in ("submit_user", "classroom"):
-        try:
-            db.execute_sql(f"ALTER TABLE homework ADD COLUMN {col}_id INTEGER")
-        except Exception:
-            pass  # column already exists
-    # Create new tables
-    db.create_tables(ALL_NEW_TABLES, safe=True)
+    """Create all tables. Idempotent (create_all checkfirst)."""
+    # Importing registers every table on the shared metadata.
+    from ai_teacher.storage import models as _storage_models  # noqa: F401
+    from . import models as _backend_models  # noqa: F401
+
+    engine = get_engine()
+    # Patch old local SQLite dev DBs before create_all (e.g. user -> app_user).
+    migrate_dev_sqlite(engine)
+    Base.metadata.create_all(engine)
+
+    # Seed system quick-record templates once.
+    from ai_teacher.storage.database import session_scope
+    from .services.growth_templates import seed_default_templates
+    with session_scope() as db:
+        seed_default_templates(db)
 
 
 def get_db():
-    """FastAPI dependency: yield a peewee connection."""
-    from ai_teacher.storage.models import db
-    if db.is_closed():
-        db.connect(reuse_if_open=True)
-    try:
-        yield db
-    finally:
-        pass  # keep connection open (sqlite is fast)
+    """Re-exported FastAPI session dependency."""
+    from ai_teacher.storage.database import get_db as _get_db
+
+    yield from _get_db()

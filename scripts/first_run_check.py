@@ -26,7 +26,7 @@ def main() -> int:
         print("[OK] .env exists")
 
     # 3. Python deps
-    for mod in ("dashscope", "openai", "peewee", "PIL", "loguru", "dotenv", "yaml"):
+    for mod in ("dashscope", "openai", "sqlalchemy", "oracledb", "PIL", "loguru", "dotenv", "yaml"):
         try:
             __import__(mod)
         except Exception as e:

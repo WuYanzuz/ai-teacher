@@ -3,19 +3,26 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from ai_teacher.storage.models import Homework
+from ai_teacher.storage.database import get_db, session_scope
+from ai_teacher.storage.models import Child, Homework
+from ai_teacher.utils.logger import get_logger
 
 from ..auth import current_user
 from ..config import get_settings
 from ..models import Classroom, Membership, User
 from ..services.ai_pipeline import process_homework
 from ..services.storage import save_upload
+
+log = get_logger()
 
 router = APIRouter(prefix="/api/homework", tags=["homework"])
 
@@ -24,7 +31,7 @@ class HomeworkOut(BaseModel):
     id: int
     child_name: str
     media_type: str
-    media_url: str
+    media_url: Optional[str] = None
     transcript: Optional[str] = None
     is_homework: bool
     raw_feedback: Optional[str] = None
@@ -36,14 +43,6 @@ class HomeworkOut(BaseModel):
 
 class RenameReq(BaseModel):
     child_name: str
-
-
-class AckReq(BaseModel):
-    pass  # no body needed
-
-
-class IgnoreReq(BaseModel):
-    pass
 
 
 class EditFeedbackReq(BaseModel):
@@ -58,26 +57,27 @@ def upload_homework(
     file: UploadFile = File(...),
     class_id: int = Form(...),
     child_name: str = Form(...),
+    db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
     if user.role != "parent":
         raise HTTPException(403, "only parents upload homework")
-    # Validate membership
-    m = Membership.get_or_none(
-        (Membership.user == user) & (Membership.classroom_id == class_id)
+    m = db.scalar(
+        select(Membership).where(
+            Membership.user_id == user.id,
+            Membership.classroom_id == class_id,
+        )
     )
     if not m:
         raise HTTPException(403, "not a member of this class")
-    # Save file
     suffix = Path(file.filename or "").suffix.lower() or ".bin"
     content = file.file.read()
     if len(content) > 100 * 1024 * 1024:  # 100MB cap
         raise HTTPException(413, "file too large (max 100MB)")
     local_path, public_url = save_upload(content, suffix)
-    # Create Homework row (mark as pending)
-    from datetime import datetime
-    hw = Homework.create(
-        child_id=_get_or_make_child_id(m, child_name),
+    child_id = _get_or_make_child_id(db, user.openid, child_name)
+    hw = Homework(
+        child_id=child_id,
         group_roomid=f"class:{class_id}",
         msg_id=int(time.time() * 1000),  # synthetic
         media_type=_media_kind(suffix),
@@ -85,35 +85,47 @@ def upload_homework(
         raw_transcript=None,
         is_homework=0,
         feedback=None,
-        submit_user=user,
+        submit_user_id=user.id,
         classroom_id=class_id,
+        child_name=child_name,
         created_at=datetime.now(),
     )
-    # Process in background
+    db.add(hw)
+    db.commit()
+    db.refresh(hw)
+    # Build the response before the background task runs; only pass the id.
+    out = _to_out(db, hw, m, public_url)
     background.add_task(_process_async, hw.id, local_path, child_name)
-    return _to_out(hw, m, public_url)
+    return out
 
 
 def _process_async(hw_id: int, file_path: Path, child_name: str) -> None:
-    """Background task: run AI pipeline, update Homework row."""
+    """Background task: run AI pipeline, update the Homework row."""
     try:
+        # Slow AI call happens with no DB session held open.
         result = process_homework(file_path, child_name)
-        hw = Homework.get_by_id(hw_id)
-        if result.get("error"):
-            hw.feedback = f"[处理失败] {result['error']}"
-        else:
-            hw.is_homework = 1 if result.get("is_homework") else 0
-            hw.raw_transcript = result.get("transcript")
-            # Save both raw and polished: feedback = polished (sent to teacher);
-            # we keep raw inside the message so teacher sees both if needed.
-            polished = result.get("polished_feedback") or result.get("raw_feedback") or ""
-            hw.feedback = polished
-        hw.save()
+        with session_scope() as db:
+            hw = db.get(Homework, hw_id)
+            if hw is None:
+                log.warning(f"background: homework {hw_id} vanished")
+                return
+            if result.get("error"):
+                hw.feedback = f"[处理失败] {result['error']}"
+            else:
+                hw.is_homework = 1 if result.get("is_homework") else 0
+                hw.raw_transcript = result.get("transcript")
+                hw.feedback = (
+                    result.get("polished_feedback")
+                    or result.get("raw_feedback")
+                    or ""
+                )
     except Exception as e:
+        log.exception(f"background processing failed for homework {hw_id}")
         try:
-            hw = Homework.get_by_id(hw_id)
-            hw.feedback = f"[处理异常] {e}"
-            hw.save()
+            with session_scope() as db:
+                hw = db.get(Homework, hw_id)
+                if hw is not None:
+                    hw.feedback = f"[处理异常] {e}"
         except Exception:
             pass
 
@@ -124,101 +136,103 @@ def _process_async(hw_id: int, file_path: Path, child_name: str) -> None:
 def list_homework(
     class_id: int,
     only_homework: bool = True,
+    db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    c = Classroom.get_or_none(Classroom.id == class_id)
+    c = db.get(Classroom, class_id)
     if not c:
         raise HTTPException(404, "class not found")
-    if user.role == "teacher" and c.teacher.id != user.id:
-        raise HTTPException(403, "not your class")
-    if user.role == "parent":
-        m = Membership.get_or_none(
-            (Membership.user == user) & (Membership.classroom == c)
-        )
-        if not m:
-            raise HTTPException(403, "not a member")
-    qs = Homework.select().where(Homework.classroom == c)
+    _require_class_member(db, c, user)
+    stmt = select(Homework).where(Homework.classroom_id == class_id)
     if only_homework:
-        qs = qs.where(Homework.is_homework == 1)
-    qs = qs.order_by(Homework.created_at.desc()).limit(100)
+        stmt = stmt.where(Homework.is_homework == 1)
+    stmt = stmt.order_by(Homework.created_at.desc()).limit(100)
     out = []
-    for hw in qs:
-        media_url = _build_media_url(hw.media_path)
-        submitter = hw.submit_user.name if hw.submit_user else "?"
-        out.append(HomeworkOut(
-            id=hw.id, child_name=hw.child.name if hw.child else "?",
-            media_type=hw.media_type, media_url=media_url,
-            transcript=hw.raw_transcript, is_homework=bool(hw.is_homework),
-            raw_feedback=hw.feedback, polished_feedback=hw.feedback,
-            teacher_review=hw.teacher_review,
-            created_at=hw.created_at.isoformat() if hw.created_at else "",
-            submitter_name=submitter,
-        ))
+    for hw in db.scalars(stmt).all():
+        out.append(_to_out(db, hw, None, _build_media_url(hw.media_path)))
     return out
 
 
 @router.get("/{hw_id}", response_model=HomeworkOut)
-def get_homework(hw_id: int, user: User = Depends(current_user)):
-    hw = Homework.get_or_none(Homework.id == hw_id)
+def get_homework(
+    hw_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    hw = db.get(Homework, hw_id)
     if not hw:
         raise HTTPException(404, "not found")
-    if not _can_view(hw, user):
+    if not _can_view(db, hw, user):
         raise HTTPException(403, "forbidden")
-    return HomeworkOut(
-        id=hw.id, child_name=hw.child.name if hw.child else "?",
-        media_type=hw.media_type, media_url=_build_media_url(hw.media_path),
-        transcript=hw.raw_transcript, is_homework=bool(hw.is_homework),
-        raw_feedback=hw.feedback, polished_feedback=hw.feedback,
-        teacher_review=hw.teacher_review,
-        created_at=hw.created_at.isoformat() if hw.created_at else "",
-        submitter_name=hw.submit_user.name if hw.submit_user else "?",
-    )
+    return _to_out(db, hw, None, _build_media_url(hw.media_path))
 
 
 @router.post("/{hw_id}/rename", response_model=HomeworkOut)
-def rename_child(hw_id: int, req: RenameReq, user: User = Depends(current_user)):
-    hw = Homework.get_or_none(Homework.id == hw_id)
+def rename_child(
+    hw_id: int,
+    req: RenameReq,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    hw = db.get(Homework, hw_id)
     if not hw:
         raise HTTPException(404, "not found")
-    if user.role != "teacher" or (hw.classroom and hw.classroom.teacher.id != user.id):
+    if not _is_class_teacher(db, hw.classroom_id, user):
         raise HTTPException(403, "forbidden")
-    if hw.child:
-        hw.child.name = req.child_name
-        hw.child.save()
-    return get_homework(hw_id, user)
+    new_name = req.child_name.strip()
+    if not new_name:
+        raise HTTPException(400, "child name cannot be empty")
+    if hw.child is not None:
+        hw.child.name = new_name
+    hw.child_name = new_name
+    db.commit()
+    return get_homework(hw_id, db, user)
 
 
 @router.post("/{hw_id}/ack", response_model=HomeworkOut)
-def ack(hw_id: int, user: User = Depends(current_user)):
-    hw = Homework.get_or_none(Homework.id == hw_id)
+def ack(
+    hw_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    hw = db.get(Homework, hw_id)
     if not hw:
         raise HTTPException(404, "not found")
-    if user.role != "teacher" or (hw.classroom and hw.classroom.teacher.id != user.id):
+    if not _is_class_teacher(db, hw.classroom_id, user):
         raise HTTPException(403, "forbidden")
     hw.teacher_review = "✓ 已确认"
-    hw.save()
-    return get_homework(hw_id, user)
+    db.commit()
+    return get_homework(hw_id, db, user)
 
 
 @router.post("/{hw_id}/ignore", response_model=HomeworkOut)
-def ignore(hw_id: int, user: User = Depends(current_user)):
-    hw = Homework.get_or_none(Homework.id == hw_id)
+def ignore(
+    hw_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    hw = db.get(Homework, hw_id)
     if not hw:
         raise HTTPException(404, "not found")
-    if user.role != "teacher" or (hw.classroom and hw.classroom.teacher.id != user.id):
+    if not _is_class_teacher(db, hw.classroom_id, user):
         raise HTTPException(403, "forbidden")
     hw.is_homework = 0
-    hw.save()
-    return get_homework(hw_id, user)
+    db.commit()
+    return get_homework(hw_id, db, user)
 
 
 @router.post("/{hw_id}/feedback", response_model=HomeworkOut)
-def edit_feedback(hw_id: int, req: EditFeedbackReq, user: User = Depends(current_user)):
-    """Teacher edits the feedback text. The new text overrides the AI's output."""
-    hw = Homework.get_or_none(Homework.id == hw_id)
+def edit_feedback(
+    hw_id: int,
+    req: EditFeedbackReq,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """Teacher edits the feedback text. The new text overrides the AI's."""
+    hw = db.get(Homework, hw_id)
     if not hw:
         raise HTTPException(404, "not found")
-    if user.role != "teacher" or (hw.classroom and hw.classroom.teacher.id != user.id):
+    if not _is_class_teacher(db, hw.classroom_id, user):
         raise HTTPException(403, "forbidden")
     new_text = (req.feedback or "").strip()
     if not new_text:
@@ -226,24 +240,62 @@ def edit_feedback(hw_id: int, req: EditFeedbackReq, user: User = Depends(current
     if not hw.teacher_review or "已编辑" not in hw.teacher_review:
         hw.teacher_review = "✏️ 已编辑"
     hw.feedback = new_text
-    hw.save()
-    return get_homework(hw_id, user)
+    db.commit()
+    return get_homework(hw_id, db, user)
 
 
 @router.post("/{hw_id}/reset_feedback", response_model=HomeworkOut)
-def reset_feedback(hw_id: int, user: User = Depends(current_user)):
+def reset_feedback(
+    hw_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
     """Mark as not-edited (no revert of the actual text in this MVP)."""
-    hw = Homework.get_or_none(Homework.id == hw_id)
+    hw = db.get(Homework, hw_id)
     if not hw:
         raise HTTPException(404, "not found")
-    if user.role != "teacher" or (hw.classroom and hw.classroom.teacher.id != user.id):
+    if not _is_class_teacher(db, hw.classroom_id, user):
         raise HTTPException(403, "forbidden")
     hw.teacher_review = None
-    hw.save()
-    return get_homework(hw_id, user)
+    db.commit()
+    return get_homework(hw_id, db, user)
 
 
-# ---------- helpers ----------
+# ---------- permission helpers ----------
+
+def _require_class_member(db: Session, c: Classroom, user: User) -> None:
+    if user.role == "teacher":
+        if c.teacher_id != user.id:
+            raise HTTPException(403, "not your class")
+        return
+    m = db.scalar(
+        select(Membership.id).where(
+            Membership.user_id == user.id,
+            Membership.classroom_id == c.id,
+        )
+    )
+    if not m:
+        raise HTTPException(403, "not a member")
+
+
+def _is_class_teacher(db: Session, classroom_id: Optional[int], user: User) -> bool:
+    if user.role != "teacher" or classroom_id is None:
+        return False
+    teacher_id = db.scalar(
+        select(Classroom.teacher_id).where(Classroom.id == classroom_id)
+    )
+    return teacher_id == user.id
+
+
+def _can_view(db: Session, hw: Homework, user: User) -> bool:
+    if user.role == "teacher":
+        return _is_class_teacher(db, hw.classroom_id, user)
+    if user.role == "parent":
+        return hw.submit_user_id == user.id
+    return False
+
+
+# ---------- output / misc helpers ----------
 
 def _media_kind(suffix: str) -> str:
     s = suffix.lower()
@@ -256,33 +308,42 @@ def _media_kind(suffix: str) -> str:
     return "file"
 
 
-def _get_or_make_child_id(membership: Membership, child_name: str) -> int:
-    """Find or create a Child row for this parent's child name."""
-    from datetime import datetime
-    from ai_teacher.storage.models import Child
-    child, _ = Child.get_or_create(
-        name=child_name,
-        defaults={
-            "parent_wxid": membership.user.openid,
-            "first_seen": datetime.now(),
-            "last_seen": datetime.now(),
-        },
-    )
+def _get_or_make_child_id(db: Session, parent_openid: str, child_name: str) -> int:
+    """Find or create the global Child row (name-based, as in the old code)."""
+    child = db.scalar(select(Child).where(Child.name == child_name))
+    if child is None:
+        now = datetime.now()
+        child = Child(
+            name=child_name,
+            parent_wxid=parent_openid or None,
+            first_seen=now,
+            last_seen=now,
+        )
+        db.add(child)
+        db.flush()  # get child.id without ending the request transaction
     return child.id
 
 
-def _can_view(hw: Homework, user: User) -> bool:
-    if user.role == "teacher":
-        return hw.classroom is not None and hw.classroom.teacher.id == user.id
-    if user.role == "parent":
-        return hw.submit_user is not None and hw.submit_user.id == user.id
-    return False
+def _resolve_child_name(db: Session, hw: Homework) -> str:
+    if hw.child_name:
+        return hw.child_name
+    child = db.get(Child, hw.child_id) if hw.child_id else None
+    return child.name if child else "?"
 
 
-def _to_out(hw: Homework, membership: Membership, media_url: str) -> HomeworkOut:
+def _to_out(db: Session, hw: Homework, membership: Optional[Membership], media_url: Optional[str]) -> HomeworkOut:
+    child_name = hw.child_name
+    if not child_name:
+        child = db.get(Child, hw.child_id) if hw.child_id else None
+        child_name = child.name if child else (membership.child_name if membership else "?")
+    submitter = "?"
+    if hw.submit_user_id is not None:
+        u = db.get(User, hw.submit_user_id)
+        if u is not None:
+            submitter = u.name
     return HomeworkOut(
         id=hw.id,
-        child_name=hw.child.name if hw.child else membership.child_name,
+        child_name=child_name,
         media_type=hw.media_type,
         media_url=media_url,
         transcript=hw.raw_transcript,
@@ -291,26 +352,20 @@ def _to_out(hw: Homework, membership: Membership, media_url: str) -> HomeworkOut
         polished_feedback=hw.feedback,
         teacher_review=hw.teacher_review,
         created_at=hw.created_at.isoformat() if hw.created_at else "",
-        submitter_name=membership.user.name,
+        submitter_name=submitter,
     )
 
 
 def _build_media_url(media_path: str | None) -> str | None:
-    """Build a /media/... URL from an absolute filesystem path.
-
-    media_path is stored as an absolute path (e.g. E:\\aiwechat\\data\\uploads\\20260821\\x.jpg).
-    We compute the relative path under the configured upload_dir.
-    """
+    """Build a /media/... URL from an absolute filesystem path."""
     if not media_path:
         return None
     try:
-        from pathlib import Path
         p = Path(media_path)
         upload_root = Path(get_settings().upload_dir)
         try:
             rel = p.relative_to(upload_root).as_posix()
         except ValueError:
-            # Path is not under upload_root, fall back to filename
             rel = p.name
         return f"/media/{rel}"
     except Exception:

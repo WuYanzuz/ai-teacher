@@ -98,3 +98,92 @@ page {
   padding: 80rpx 0;
   font-size: 28rpx;
 }
+
+/* ---- growth checkin / reports ---- */
+.chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.chip {
+  background: #fff;
+  color: #4B5563;
+  border: 2rpx solid #E0E5EE;
+  border-radius: 999rpx;
+  padding: 12rpx 28rpx;
+  font-size: 26rpx;
+}
+
+.chip-active {
+  background: #7C9CF1;
+  border-color: #7C9CF1;
+  color: #fff;
+}
+
+.seg {
+  display: flex;
+  background: #E8ECF7;
+  border-radius: 12rpx;
+  padding: 6rpx;
+  margin-bottom: 20rpx;
+}
+
+.seg-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  font-size: 28rpx;
+  color: #6B7280;
+  border-radius: 10rpx;
+}
+
+.seg-active {
+  background: #fff;
+  color: #7C9CF1;
+  font-weight: 600;
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.06);
+}
+
+.progress-bar {
+  height: 16rpx;
+  background: #E8ECF7;
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+
+.progress-inner {
+  height: 100%;
+  background: #7C9CF1;
+  border-radius: 999rpx;
+  transition: width 0.3s;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  margin-right: 12rpx;
+}
+
+.dot-done { background: #10B981; }
+.dot-failed { background: #DC2626; }
+.dot-running { background: #F59E0B; }
+.dot-pending { background: #C7CDDB; }
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  margin: 8rpx 0 16rpx;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 160rpx;
+  background: #F4F6FA;
+  border-radius: 8rpx;
+  padding: 16rpx;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}

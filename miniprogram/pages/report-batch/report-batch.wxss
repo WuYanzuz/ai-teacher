@@ -1,0 +1,8 @@
+.rep-row {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #F0F2F7;
+}
+
+.rep-row:last-child {
+  border-bottom: none;
+}

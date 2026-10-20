@@ -9,12 +9,25 @@ Page({
     homework: [],
     loading: true,
     childFilter: "",  // optional: filter by child name
+    isTeacher: false,
   },
 
   onLoad(query) {
-    this.setData({ classId: Number(query.class_id) });
+    const app = getApp();
+    this.setData({
+      classId: Number(query.class_id),
+      isTeacher: (app.globalData.user || {}).role === "teacher",
+    });
     this.loadClass();
     this.loadHomework();
+  },
+
+  onOpenCheckin() {
+    wx.navigateTo({ url: `/pages/checkin/checkin?class_id=${this.data.classId}` });
+  },
+
+  onOpenReports() {
+    wx.navigateTo({ url: `/pages/report-batch/report-batch?class_id=${this.data.classId}` });
   },
 
   onShow() {

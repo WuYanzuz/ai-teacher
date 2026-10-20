@@ -1,0 +1,21 @@
+<view class="container">
+  <view wx:for="{{categories}}" wx:for-index="ci" wx:key="code" class="card">
+    <view class="section-title">{{item.label}}</view>
+    <view class="chip-wrap">
+      <view wx:for="{{item.options}}" wx:for-item="opt" wx:for-index="oi" wx:key="*this"
+            class="chip {{item.picked.indexOf(opt) >= 0 ? 'chip-active' : ''}}"
+            data-ci="{{ci}}" data-oi="{{oi}}" bindtap="onToggleOption">{{opt}}</view>
+    </view>
+    <input class="input" style="margin-top:16rpx;margin-bottom:0;"
+           placeholder="{{item.label}}备注（可不填）" value="{{item.note}}"
+           data-ci="{{ci}}" bindinput="onCatNote" />
+  </view>
+
+  <view class="card">
+    <view class="section-title">今日总备注</view>
+    <textarea class="textarea" placeholder="想补充给家长的话..." value="{{note}}"
+              auto-height bindinput="onNote" />
+  </view>
+
+  <view class="btn-primary {{saving ? 'btn-disabled' : ''}}" bindtap="onSave">保存记录</view>
+</view>

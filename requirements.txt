@@ -12,8 +12,9 @@ openai>=1.30.0
 Pillow>=10.0.0
 ffmpeg-python>=0.2.0
 
-# 存储
-peewee>=3.17.0
+# 存储 (Oracle 19c+ 经 python-oracledb 瘦模式直连, 无需 Instant Client)
+SQLAlchemy>=2.0
+oracledb>=2.0
 
 # 配置与日志
 python-dotenv>=1.0.0

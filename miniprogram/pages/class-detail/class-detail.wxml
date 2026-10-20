@@ -1,4 +1,15 @@
 <view class="container">
+  <view wx:if="{{isTeacher}}" class="row" style="gap:16rpx;margin-bottom:20rpx;">
+    <view class="card entry-card" bindtap="onOpenCheckin">
+      <view class="entry-emoji">📝</view>
+      <view class="entry-label">日常打卡</view>
+    </view>
+    <view class="card entry-card" bindtap="onOpenReports">
+      <view class="entry-emoji">📊</view>
+      <view class="entry-label">成长报告</view>
+    </view>
+  </view>
+
   <view class="card filter-card">
     <view class="row">
       <input class="input filter-input" placeholder="按孩子名筛选 (留空看全部)" value="{{childFilter}}" bindinput="onFilterInput" />

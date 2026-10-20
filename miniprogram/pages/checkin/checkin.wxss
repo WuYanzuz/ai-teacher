@@ -1,0 +1,3 @@
+.child-row {
+  padding: 28rpx 24rpx;
+}

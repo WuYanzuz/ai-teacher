@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .db import init_backend_db
-from .routes import auth, classes, homework, children
+from .routes import auth, checkin, classes, homework, children, reports
 
 settings = get_settings()
 
@@ -32,6 +32,10 @@ app.mount("/media", StaticFiles(directory=str(settings.upload_dir)), name="media
 @app.on_event("startup")
 def _startup() -> None:
     init_backend_db()
+    # BackgroundTasks don't survive restarts: fail stuck batches so the
+    # teacher can regenerate.
+    from .services.report_service import recover_interrupted
+    recover_interrupted()
 
 
 # Routers
@@ -39,6 +43,8 @@ app.include_router(auth.router)
 app.include_router(classes.router)
 app.include_router(homework.router)
 app.include_router(children.router)
+app.include_router(checkin.router)
+app.include_router(reports.router)
 
 
 @app.get("/")
@@ -46,7 +52,8 @@ def root():
     return {
         "name": "AI Homework Reviewer",
         "version": app.version,
-        "endpoints": ["/api/auth/*", "/api/classes/*", "/api/homework/*", "/api/children/*", "/media/*"],
+        "endpoints": ["/api/auth/*", "/api/classes/*", "/api/homework/*",
+                      "/api/children/*", "/api/checkin/*", "/api/reports/*", "/media/*"],
         "dev_login": os.getenv("ENABLE_DEV_LOGIN", "1") == "1",
     }
 

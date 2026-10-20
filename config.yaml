@@ -43,9 +43,19 @@ media:
   image_max_mb: 20
   video_max_mb: 100
 
+# 数据库
+# dialect: sqlite (本地开发/测试) | oracle (生产, python-oracledb 瘦模式)
+database:
+  dialect: sqlite
+  host: 127.0.0.1
+  port: 1521
+  service_name: XEPDB1
+  user: AIWECHAT
+  # 密码放 .env 的 ORACLE_PASSWORD; 也可用 ORACLE_DSN 直接指定完整 DSN
+
 paths:
   cache_dir: data/cache
-  db_path: data/ai_teacher.db
+  db_path: data/ai_teacher.db   # sqlite 方言使用; 也是 Oracle 迁移脚本的默认源库
   log_dir: data/logs
 
 logging:

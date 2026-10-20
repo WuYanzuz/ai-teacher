@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ai_teacher.storage.database import get_db
 
 from ..auth import current_user, issue_token, wx_code2session
 from ..models import User
@@ -30,46 +35,40 @@ class LoginResp(BaseModel):
     user: dict
 
 
-@router.post("/wx_login", response_model=LoginResp)
-def wx_login(req: WxLoginReq):
-    """WeChat mini program login.
+def _find_or_create_user(db: Session, openid: str, role: str, name: str) -> User:
+    user = db.scalar(select(User).where(User.openid == openid))
+    if user is None:
+        user = User(openid=openid, role=role, name=name)
+        db.add(user)
+        db.flush()
+    return user
 
-    1. Exchange code for openid via code2session
-    2. Find or create user
-    3. Issue bearer token
-    """
+
+@router.post("/wx_login", response_model=LoginResp)
+def wx_login(req: WxLoginReq, db: Session = Depends(get_db)):
+    """WeChat mini program login: code -> openid -> find/create user -> token."""
     data = wx_code2session(req.code)
     openid = data["openid"]
-    user, _ = User.get_or_create(
-        openid=openid,
-        defaults={"role": req.role, "name": req.name},
-    )
+    user = _find_or_create_user(db, openid, req.role, req.name)
     # Update name/role on subsequent logins (in case user toggles in UI)
     user.name = req.name or user.name
     if req.role in ("parent", "teacher"):
         user.role = req.role
     user.last_login = datetime.now()
-    user.save()
-    return LoginResp(token=issue_token(user), user=_user_dict(user))
+    db.commit()
+    return LoginResp(token=issue_token(db, user), user=_user_dict(user))
 
 
 @router.post("/dev_login", response_model=LoginResp)
-def dev_login(req: DevLoginReq):
-    """DEV-ONLY login without WeChat. Open access for local testing.
-
-    DO NOT expose this in production. Set ENABLE_DEV_LOGIN=0 in .env to disable.
-    """
-    import os
+def dev_login(req: DevLoginReq, db: Session = Depends(get_db)):
+    """DEV-ONLY login without WeChat. Set ENABLE_DEV_LOGIN=0 to disable."""
     if os.getenv("ENABLE_DEV_LOGIN", "1") != "1":
         raise HTTPException(403, "dev login disabled")
-    user, _ = User.get_or_create(
-        openid=req.openid,
-        defaults={"role": req.role, "name": req.name},
-    )
+    user = _find_or_create_user(db, req.openid, req.role, req.name)
     user.name = req.name
     user.last_login = datetime.now()
-    user.save()
-    return LoginResp(token=issue_token(user), user=_user_dict(user))
+    db.commit()
+    return LoginResp(token=issue_token(db, user), user=_user_dict(user))
 
 
 @router.get("/me")

@@ -1,0 +1,42 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="empty">加载中...</view>
+
+  <view wx:elif="{{report.status !== 'done' && isTeacher}}" class="card">
+    <view class="empty" style="padding:40rpx 0;">
+      <view wx:if="{{report.status === 'failed'}}" style="color:#DC2626;margin-bottom:16rpx;">生成失败：{{report.error_msg || 'AI 服务异常'}}</view>
+      <view wx:else>报告{{report.status === 'running' ? '生成中…' : '排队中…'}}</view>
+    </view>
+  </view>
+
+  <block wx:else>
+    <view class="card">
+      <view class="row">
+        <view class="section-title" style="margin:0;">
+          {{report.child_name}} · {{report.report_type === 'day' ? '日报' : '周报'}}
+        </view>
+        <view wx:if="{{report.is_published}}" class="tag" style="color:#10B981;background:#D1FAE5;">已发布</view>
+      </view>
+      <view class="subtitle">{{report.period_start}}{{report.report_type === 'week' ? ' ~ ' + report.period_end : ''}}</view>
+      <view class="divider"></view>
+      <view class="report-content">{{report.visible_content}}</view>
+      <view wx:if="{{isTeacher && report.teacher_edit}}" class="subtitle" style="font-size:22rpx;margin-top:16rpx;">（老师已编辑）</view>
+    </view>
+
+    <view wx:if="{{isTeacher}}" class="row" style="gap:16rpx;">
+      <view class="btn-secondary" style="flex:1;" bindtap="onShowEdit">修改内容</view>
+      <view wx:if="{{!report.is_published}}" class="btn-primary" style="flex:1;" bindtap="onPublish">发布给家长</view>
+      <view wx:else class="btn-secondary" style="flex:1;color:#DC2626;border-color:#DC2626;" bindtap="onUnpublish">撤回发布</view>
+    </view>
+  </block>
+
+  <view wx:if="{{showEdit}}" class="modal-mask" bindtap="onCancelEdit">
+    <view class="modal" catchtap="">
+      <view class="title">修改报告</view>
+      <textarea class="textarea" style="min-height:360rpx;" value="{{editValue}}" bindinput="onEditInput" auto-height />
+      <view class="row" style="gap:16rpx;margin-top:16rpx;">
+        <view class="btn-secondary" style="flex:1;" bindtap="onCancelEdit">取消</view>
+        <view class="btn-primary" style="flex:1;" bindtap="onSaveEdit">保存</view>
+      </view>
+    </view>
+  </view>
+</view>

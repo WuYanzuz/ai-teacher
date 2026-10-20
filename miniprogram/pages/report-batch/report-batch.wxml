@@ -1,0 +1,57 @@
+<view class="container">
+  <view class="card">
+    <view class="seg">
+      <view class="seg-item {{type === 'day' ? 'seg-active' : ''}}" data-type="day" bindtap="onTypeChange">日报</view>
+      <view class="seg-item {{type === 'week' ? 'seg-active' : ''}}" data-type="week" bindtap="onTypeChange">周报</view>
+    </view>
+    <view class="row">
+      <view class="col">
+        <view class="label" style="margin-bottom:0;">{{type === 'day' ? '日期' : '选本周任意一天'}}</view>
+        <picker mode="date" value="{{date}}" bindchange="onDateChange">
+          <view style="font-size:34rpx;font-weight:600;padding-top:8rpx;">{{date}} ▾</view>
+        </picker>
+      </view>
+      <view wx:if="{{type === 'week'}}" class="tag" style="font-size:24rpx;">{{weekText}}</view>
+    </view>
+    <view class="btn-primary" style="margin-top:20rpx;" bindtap="onGenerate">生成 / 查看本{{type === 'day' ? '日' : '周'}}报告</view>
+  </view>
+
+  <view wx:if="{{batch}}">
+    <view class="card">
+      <view class="row">
+        <view class="section-title" style="margin:0;">
+          {{batch.report_type === 'day' ? '日报' : '周报'}} · {{batch.period_start}}{{batch.report_type === 'week' ? ' ~ ' + batch.period_end : ''}}
+        </view>
+        <view class="tag">{{batch.status === 'done' ? '已完成' : (batch.status === 'partial' ? '部分失败' : (batch.status === 'failed' ? '失败' : (batch.status === 'running' ? '生成中' : '排队中')))}}</view>
+      </view>
+
+      <view class="progress-bar" style="margin:20rpx 0 12rpx;">
+        <view class="progress-inner" style="width:{{batch.total ? ((batch.succeeded + batch.failed_count) / batch.total * 100) : 0}}%;"></view>
+      </view>
+      <view class="subtitle">已完成 {{batch.succeeded}} / {{batch.total}}，失败 {{batch.failed_count}}</view>
+
+      <view wx:for="{{batch.reports}}" wx:key="id" class="rep-row">
+        <view class="row" data-id="{{item.id}}" data-status="{{item.status}}" bindtap="onOpenReport">
+          <view style="display:flex;align-items:center;flex:1;">
+            <view class="status-dot dot-{{item.status}}"></view>
+            <view style="font-size:28rpx;">
+              {{item.child_name}}
+              <text wx:if="{{item.is_published}}" style="color:#10B981;font-size:22rpx;margin-left:8rpx;">已发布</text>
+            </view>
+          </view>
+          <view wx:if="{{item.status === 'done'}}" style="color:#7C9CF1;font-size:26rpx;">查看 ›</view>
+          <view wx:elif="{{item.status === 'failed'}}" class="tag" style="color:#DC2626;background:#FEE2E2;" catchtap="onRetry" data-id="{{item.id}}">重试</view>
+          <view wx:else style="color:#9CA3AF;font-size:24rpx;">{{item.status === 'running' ? '生成中…' : '等待中…'}}</view>
+        </view>
+      </view>
+
+      <view wx:if="{{batch.status === 'done' || batch.status === 'partial'}}" class="row" style="margin-top:20rpx;gap:16rpx;">
+        <view class="btn-secondary" style="flex:1;" bindtap="onRegenerate">重新生成</view>
+        <view class="btn-primary" style="flex:1;" bindtap="onPublishAll">一键发布</view>
+      </view>
+    </view>
+    <view class="subtitle" style="text-align:center;font-size:24rpx;">发布后家长才能在孩子成长页看到报告</view>
+  </view>
+
+  <view wx:else class="empty">选择日期后，为每个孩子批量生成报告</view>
+</view>

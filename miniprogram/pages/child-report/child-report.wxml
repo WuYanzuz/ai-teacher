@@ -1,21 +1,51 @@
 <view class="container">
   <view wx:if="{{loading}}" class="empty">加载中...</view>
-  <view wx:elif="{{!report}}" class="empty">暂无历史作业</view>
-  <view wx:else>
+
+  <block wx:else>
     <view class="card">
-      <view class="title">{{report.child_name}} 成长档案</view>
-      <view class="subtitle">共 {{report.total}} 条作业记录</view>
+      <view class="title">{{childName}} 成长档案</view>
+      <view class="subtitle">
+        {{reports.length}} 份老师报告 · {{checkins.length}} 天在园记录
+        <block wx:if="{{report}}"> · {{report.total}} 条作业记录</block>
+      </view>
     </view>
 
-    <view wx:for="{{report.history}}" wx:key="date" class="card">
+    <!-- 1. AI 报告（仅已发布） -->
+    <view class="section-title">📊 老师写的报告</view>
+    <view wx:if="{{!reports.length}}" class="card empty-inline">老师还没有发布报告</view>
+    <view wx:for="{{reports}}" wx:key="id" class="card rep-card" data-id="{{item.id}}" bindtap="onOpenReport">
       <view class="row">
-        <view class="col">
-          <view style="font-size:28rpx;font-weight:600;">{{item.date}}</view>
-          <view class="subtitle">{{item.type === 'image' ? '图片' : (item.type === 'video' ? '视频' : '语音')}}</view>
-        </view>
+        <view style="font-weight:600;">{{item.type_text}} · {{item.period_start}}{{item.report_type === 'week' ? ' ~ ' + item.period_end : ''}}</view>
+        <view style="color:#7C9CF1;font-size:26rpx;">查看 ›</view>
       </view>
-      <view class="divider"></view>
-      <view class="feedback">{{item.feedback}}</view>
+      <view class="rep-preview">{{item.visible_content}}</view>
     </view>
-  </view>
+
+    <!-- 2. 在园打卡 -->
+    <view class="section-title">📝 在园记录（近 30 天）</view>
+    <view wx:if="{{!checkins.length}}" class="card empty-inline">暂无日常记录</view>
+    <view wx:for="{{checkins}}" wx:for-item="day" wx:key="id" class="card">
+      <view style="font-size:28rpx;font-weight:600;margin-bottom:12rpx;">{{day.date}}</view>
+      <view wx:for="{{day.items}}" wx:for-item="it" wx:key="category_code" class="ck-line">
+        <text class="ck-label">{{it.label}}</text>
+        <text class="ck-opts">{{it.optionsText}}<text wx:if="{{it.note}}" class="ck-note">（{{it.note}}）</text></text>
+      </view>
+      <view wx:if="{{day.note}}" class="ck-daynote">老师备注：{{day.note}}</view>
+    </view>
+
+    <!-- 3. 作业历史 -->
+    <view wx:if="{{report && report.history.length}}">
+      <view class="section-title">✏️ 作业历史</view>
+      <view wx:for="{{report.history}}" wx:key="date" class="card">
+        <view class="row">
+          <view class="col">
+            <view style="font-size:28rpx;font-weight:600;">{{item.date}}</view>
+            <view class="subtitle">{{item.type === 'image' ? '图片' : (item.type === 'video' ? '视频' : '语音')}}</view>
+          </view>
+        </view>
+        <view class="divider"></view>
+        <view class="feedback">{{item.feedback}}</view>
+      </view>
+    </view>
+  </block>
 </view>

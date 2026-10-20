@@ -459,12 +459,14 @@ async def wx_login(req: WxLoginReq):      # async 修饰的是协程函数
 | `@Autowired` / 构造注入 | `= Depends(xxx)` | `Depends(current_user)` |
 | `@AuthenticationPrincipal` | `user: User = Depends(current_user)` | `backend/auth.py` |
 | `throw new ResponseStatusException` | `raise HTTPException(404, "...")` | |
-| `@Async` | `BackgroundTasks.add_task()` | `homework.py` |
+| `@Async` | `BackgroundTasks.add_task()` | `homework.py`、`reports.py` |
 | `@Value("${x}")` | `os.getenv("X")` | `backend/config.py` |
 | `application.yml` | `config.yaml` + `.env` | |
 | Swagger 注解 | 自动生成，直接看 `/docs` | |
-| `@Entity` | `class X(Model)` (peewee) | `backend/models.py` |
-| Repository | 模型类上的静态方法 | `Homework.select()...` |
+| `@Entity` | `class X(Base)` + `Mapped[...]` (SQLAlchemy 2.x) | `backend/models.py` |
+| Repository / `JdbcTemplate` | `Session` + `select()/update()` | 各 routes；session 经 `Depends(get_db)` 注入 |
+| `DataSource`（HikariCP） | `create_engine` 连接池 | `ai_teacher/storage/database.py`，Oracle 瘦模式 + SQLite 双方言 |
+| `@Transactional` | 请求 session 显式 `commit()`；后台任务用 `session_scope()` | 同上 |
 
 **依赖注入的差异**：Spring 靠容器扫描注册 Bean，FastAPI 的 `Depends(f)` 就是「调用请求前先执行函数 f，把返回值传进来」，没有容器，更直白也更弱。
 

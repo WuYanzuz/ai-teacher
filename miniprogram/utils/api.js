@@ -80,4 +80,33 @@ module.exports = {
 
   // children
   childReport(name, classId) { return request({ url: `/api/children/${encodeURIComponent(name)}/report?class_id=${classId}` }); },
+
+  // class roster
+  listChildren(classId) { return request({ url: `/api/classes/${classId}/children` }); },
+
+  // daily check-in
+  checkinTemplate() { return request({ url: "/api/checkin/template" }); },
+  checkinDay(classId, date) { return request({ url: `/api/checkin/day?class_id=${classId}&date=${date}` }); },
+  getCheckin(classId, date, childName) {
+    return request({ url: `/api/checkin?class_id=${classId}&date=${date}&child_name=${encodeURIComponent(childName)}` });
+  },
+  putCheckin(payload) { return request({ url: "/api/checkin", method: "PUT", data: payload }); },
+  childCheckins(classId, childName, start, end) {
+    return request({ url: `/api/checkin/child?class_id=${classId}&child_name=${encodeURIComponent(childName)}&start=${start}&end=${end}` });
+  },
+
+  // AI reports
+  createReportBatch(payload) { return request({ url: "/api/reports/batches", method: "POST", data: payload }); },
+  getReportBatch(id) { return request({ url: `/api/reports/batches/${id}` }); },
+  publishAllReports(batchId) { return request({ url: `/api/reports/batches/${batchId}/publish_all`, method: "POST" }); },
+  listReportsForChild(classId, childName, type) {
+    let url = `/api/reports/child?class_id=${classId}&child_name=${encodeURIComponent(childName)}`;
+    if (type) url += `&type=${type}`;
+    return request({ url });
+  },
+  getReport(id) { return request({ url: `/api/reports/${id}` }); },
+  editReport(id, content) { return request({ url: `/api/reports/${id}/edit`, method: "POST", data: { content } }); },
+  publishReport(id) { return request({ url: `/api/reports/${id}/publish`, method: "POST" }); },
+  unpublishReport(id) { return request({ url: `/api/reports/${id}/unpublish`, method: "POST" }); },
+  retryReport(id) { return request({ url: `/api/reports/${id}/retry`, method: "POST" }); },
 };

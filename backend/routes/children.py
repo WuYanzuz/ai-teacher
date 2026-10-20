@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from ai_teacher.storage import db as storage_db
+from ai_teacher.storage.database import get_db
 from ai_teacher.storage.models import Child
 
 from ..auth import current_user
@@ -14,28 +17,32 @@ router = APIRouter(prefix="/api/children", tags=["children"])
 
 
 @router.get("/{child_name}/report")
-def get_report(child_name: str, class_id: int, user: User = Depends(current_user)):
-    c = Classroom.get_or_none(Classroom.id == class_id)
+def get_report(
+    child_name: str,
+    class_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    c = db.get(Classroom, class_id)
     if not c:
         raise HTTPException(404, "class not found")
-    if user.role == "teacher" and c.teacher.id != user.id:
+    if user.role == "teacher" and c.teacher_id != user.id:
         raise HTTPException(403, "forbidden")
     if user.role == "parent":
-        m = Membership.get_or_none(
-            (Membership.user == user) & (Membership.classroom == c)
+        m = db.scalar(
+            select(Membership).where(
+                Membership.user_id == user.id,
+                Membership.classroom_id == c.id,
+            )
         )
         if not m:
             raise HTTPException(403, "forbidden")
         if m.child_name != child_name:
             raise HTTPException(403, "not your child")
 
-    child = Child.get_or_none(
-        (Child.name == child_name) & (Child.parent_wxid != "")
-    )
-    # Try alternative: any child with this name
-    if not child:
-        child = Child.get_or_none(Child.name == child_name)
-
+    child = db.scalars(
+        select(Child).where(Child.name == child_name).order_by(Child.id)
+    ).first()
     if not child:
         raise HTTPException(404, "no history for this child")
 

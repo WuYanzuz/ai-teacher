@@ -1,0 +1,27 @@
+<view class="container">
+  <view class="card">
+    <view class="row">
+      <view class="col">
+        <view class="label" style="margin-bottom:0;">记录日期</view>
+        <picker mode="date" value="{{date}}" end="2099-12-31" bindchange="onDateChange">
+          <view style="font-size:34rpx;font-weight:600;padding-top:8rpx;">{{date}} ▾</view>
+        </picker>
+      </view>
+      <view class="tag" style="font-size:26rpx;padding:10rpx 20rpx;">已记录 {{doneCount}}/{{children.length}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="empty">加载中...</view>
+  <view wx:elif="{{!children.length}}" class="empty">班里还没有孩子，等家长加入班级</view>
+
+  <view wx:for="{{children}}" wx:key="child_name" class="card child-row"
+        data-name="{{item.child_name}}" bindtap="onOpenChild">
+    <view class="row">
+      <view style="font-size:30rpx;font-weight:600;">{{item.child_name}}</view>
+      <view class="col" style="align-items:flex-end;">
+        <view wx:if="{{item.done}}" style="color:#10B981;font-size:26rpx;">✓ 已记录</view>
+        <view wx:else style="color:#9CA3AF;font-size:26rpx;">未记录 ›</view>
+      </view>
+    </view>
+  </view>
+</view>

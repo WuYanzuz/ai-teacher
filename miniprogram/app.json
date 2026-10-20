@@ -8,7 +8,11 @@
     "pages/parent-home/parent-home",
     "pages/join-class/join-class",
     "pages/upload/upload",
-    "pages/child-report/child-report"
+    "pages/child-report/child-report",
+    "pages/checkin/checkin",
+    "pages/checkin-edit/checkin-edit",
+    "pages/report-batch/report-batch",
+    "pages/report-detail/report-detail"
   ],
   "window": {
     "backgroundTextStyle": "light",

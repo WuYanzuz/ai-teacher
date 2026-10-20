@@ -1,0 +1,24 @@
+.report-content {
+  font-size: 30rpx;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  color: #2A2A2A;
+}
+
+.modal-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  width: 86%;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
