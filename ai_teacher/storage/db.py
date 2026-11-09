@@ -118,6 +118,7 @@ def child_history(child: Child, limit: int = 20) -> list[dict]:
         ).all()
         return [
             {
+                "id": h.id,
                 "date": h.created_at.strftime("%Y-%m-%d") if h.created_at else "?",
                 "type": h.media_type,
                 "feedback": h.feedback or "",

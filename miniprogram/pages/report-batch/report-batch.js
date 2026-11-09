@@ -174,7 +174,15 @@ Page({
   async onPublishAll() {
     try {
       const r = await api.publishAllReports(this.data.batch.id);
-      wx.showToast({ title: `已发布 ${r.published} 份` });
+      if (r.blocked && r.blocked.length) {
+        wx.showModal({
+          title: "部分报告未发布",
+          content: `已发布 ${r.published} 份；${r.blocked.join("、")} 的报告可能含违规内容，已被拦截，请修改后再发布。`,
+          showCancel: false,
+        });
+      } else {
+        wx.showToast({ title: `已发布 ${r.published} 份` });
+      }
       this._pollOnce();
     } catch (e) {
       wx.showToast({ title: e.message, icon: "none" });

@@ -120,7 +120,9 @@ notepad .env
 | `VOLC_API_KEY` | 火山方舟——文本润色 | ✅ |
 | `VOLC_BASE_URL` | 方舟端点（Plan 套餐是 `/api/plan/v3`） | ✅ |
 | `ALIYUN_OSS_KEY_ID` / `_SECRET` / `_BUCKET` / `_ENDPOINT` | 语音转写需把音频临时放公网 URL | ✅ 有语音作业时 |
-| `WX_APPID` / `WX_SECRET` | 微信正式登录 | 生产环境 |
+| `WX_APPID` / `WX_SECRET` | 微信正式登录 + 内容安全检测 | 生产环境 |
+| `WX_MSG_TOKEN` | mp 后台「消息推送」的 Token，接收媒体异步检测回调 | 媒体检测要 |
+| `PUBLIC_BASE_URL` | 后端对外 HTTPS 根地址，媒体送检需公网 URL（如 `https://api.example.com`） | 媒体检测要 |
 | `ENABLE_DEV_LOGIN` | 开发登录后门，生产设 `0` | 默认 `1` |
 | `ORACLE_PASSWORD` / `ORACLE_DSN` | Oracle 连接（dialect=oracle 时）；DSN 可整体覆盖 host/port/service_name | 仅 Oracle |
 
@@ -224,7 +226,8 @@ aiwechat/
 │       ├── ai_pipeline.py   编排作业 AI 调用
 │       ├── growth_templates.py  打卡维度选项默认值 + 幂等种子
 │       ├── report_prompts.py    日报周报提示词（纯函数）
-│       └── report_service.py    ★ 批次状态机 + 逐孩 LLM 生成 + 重启恢复
+│       ├── report_service.py    ★ 批次状态机 + 逐孩 LLM 生成 + 重启恢复
+│       └── wx_security.py       ★ 微信内容安全（文本同步/媒体异步，fail-open）
 │
 ├── miniprogram/             微信小程序（13 个页面）
 │   ├── app.js               全局状态、登录态、apiBase
@@ -378,9 +381,10 @@ classroom ────────┼──< membership
 
 child ─────────────< homework        作业归属哪个孩子（全局名字表，遗留）
 homework ──────────< growthmetric
+content_scan                        微信内容安全检测记录（文本/媒体，独立表）
 ```
 
-共 13 张表。关键约定：
+共 14 张表。关键约定：
 
 | 表 | 关键字段 |
 |---|---|
@@ -394,6 +398,7 @@ homework ──────────< growthmetric
 | `growth_checkin_item` | checkin_id + category_code + option_label 唯一；多选取值拆多行 |
 | `report_batch` | status（pending/running/done/partial/failed）、total/succeeded/failed_count |
 | `child_report` | content（AI 稿）、teacher_edit（老师定稿，家长看 COALESCE 后版本）、is_published |
+| `content_scan` | target_type + target_id（弱关联各业务对象）、trace_id（异步媒体回调用）、status（pending/pass/review/risky/error/skipped） |
 
 **注意**：
 - `homework.feedback` 既存 AI 初稿也存老师改后的内容，覆盖后原文不可恢复；`teacher_review` 含「已编辑」表示老师改过。
@@ -474,6 +479,8 @@ python -m pytest ai_teacher/tests/ -v
 | 表结构变更靠 create_all | 只建新表，不做列级迁移 | 引入 Alembic |
 | 无消息推送 | 报告生成完老师要自己进小程序看 | 接微信订阅消息 |
 | 语音识别依赖 OSS | 多一跳、多一份配置 | 阿里的文件转写 API 只收公网 URL，暂无更好方案 |
+| 视频内容安全只抽 1 帧 | 音轨和其余画面未送检；发布前仍靠老师把关 | 需要时改为多帧 + 音频抽送 |
+| 微信回调只支持明文/兼容模式 | 消息推送选「安全模式」时事件无法解析 | 实现 WXBizMsgCrypt AES 解密 |
 
 ---
 
@@ -510,10 +517,12 @@ python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 4
 ### 小程序
 
 1. [微信公众平台](https://mp.weixin.qq.com)注册小程序，拿 AppID + AppSecret
-2. 后台配置「服务器域名 → request 合法域名」为你的 HTTPS 域名
-3. `miniprogram/app.js` 的 `apiBase` 改成正式域名
-4. 开发者工具填真实 AppID，上传代码
-5. 提交审核
+2. 后台配置「服务器域名」：request / uploadFile / downloadFile 合法域名都填你的 HTTPS 域名
+3. 「基本配置 → 服务器地址(消息推送)」：URL 填 `https://<域名>/api/wx/notify`，Token 与 `.env` 的 `WX_MSG_TOKEN` 一致，加解密方式选**明文/兼容模式**；`.env` 再填 `PUBLIC_BASE_URL=https://<域名>`
+4. 「设置 → 服务内容声明 → 用户隐私保护指引」：勾选「选中的照片或视频信息」（相册，用于上传作业）等接口用途并提交审核
+5. `miniprogram/app.js` 的 `apiBase` 改成正式域名
+6. 开发者工具填真实 AppID，上传代码
+7. 提审备注写清老师/家长双角色测试路径（演示班级加入码或测试账号）
 
 ### 成本估算（1 个班 30 人，每天各交 1 份）
 
@@ -538,13 +547,16 @@ python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 4
 - **语音转写的 OSS 文件用完立即删除**（`oss_uploader.py` 的 `finally` 块）
 - **`.gitignore` 覆盖所有孩子数据**：`test/`、`data/uploads/`、`data/batch_test/`、`data/*.md`、所有音视频格式
 - 原始媒体保留在本地 `data/uploads/`，需要定期清理
+- **微信内容安全检测已接入**（`backend/services/wx_security.py`）：家长上传的孩子名、老师评语/报告/打卡备注走 `msg_sec_check` 同步检测（risky 直接 400 拦截）；作业图片/语音走 `media_check_async`，视频自动抽中间帧送检，结果经 `/api/wx/notify` 回调按 trace_id 回写。risky 内容对家长隐藏，老师端有红色警示。未配置 `WX_APPID/WX_SECRET` 时全部检测 fail-open，不影响本地开发
+- **隐私授权弹窗已接入**（`__usePrivacyCheck__` + `components/privacy-popup`）：调用相册/摄像头前由微信机制弹窗，首次登录需勾选监护人同意，`pages/privacy/privacy` 是完整《隐私政策》页
 
 > 开发过程中曾误将 24 张孩子作业视频帧提交进 git，已通过 `git filter-branch` 从历史中彻底清除。**每次 `git add` 前确认没有 `data/` 或 `test/` 下的文件被暂存。**
 
-若要正式投入使用，还需要：
-- 取得监护人**单独同意**（《个人信息保护法》第 31 条，处理 14 岁以下未成年人信息的要求）
-- 提供数据删除入口
-- 明确数据保留期限
+正式投入使用前还需要：
+- 在 mp 后台提交《用户隐私保护指引》（弹窗内容以后台审核通过的版本为准）
+- 补全 `pages/privacy/privacy` 里的运营主体与联系方式占位
+- 提供产品内数据删除入口（当前只能联系老师/管理员手动删）
+- 家长侧登记监护人同意留痕（目前只有登录勾选，未持久化到服务端）
 
 ---
 

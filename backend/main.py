@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .db import init_backend_db
-from .routes import auth, checkin, classes, homework, children, reports
+from .routes import auth, checkin, classes, homework, children, reports, wx_notify
 
 settings = get_settings()
 
@@ -45,6 +45,7 @@ app.include_router(homework.router)
 app.include_router(children.router)
 app.include_router(checkin.router)
 app.include_router(reports.router)
+app.include_router(wx_notify.router)
 
 
 @app.get("/")

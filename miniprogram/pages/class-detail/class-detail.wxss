@@ -25,3 +25,13 @@
   color: #2A2A2A;
   white-space: pre-wrap;
 }
+
+.risk-warn {
+  background: #FEE2E2;
+  color: #B91C1C;
+  border-radius: 10rpx;
+  padding: 14rpx 18rpx;
+  font-size: 25rpx;
+  line-height: 1.5;
+  margin-bottom: 12rpx;
+}

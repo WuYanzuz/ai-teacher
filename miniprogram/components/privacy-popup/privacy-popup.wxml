@@ -1,0 +1,22 @@
+<view wx:if="{{visible}}" class="mask">
+  <view class="dialog">
+    <view class="title">用户隐私保护提示</view>
+    <view class="desc">
+      上传作业时需要使用你的<text class="link" bindtap="openContract">相册、摄像头和麦克风</text>，用于拍摄作业照片或视频。使用前请阅读
+      <text class="link" bindtap="openPolicy">《隐私政策》</text>
+      与微信《用户隐私保护指引》。
+    </view>
+    <view class="desc">
+      本小程序服务对象包含未成年人，未成年人请在监护人同意和指导下使用。
+    </view>
+    <view class="btns">
+      <view class="btn-reject" bindtap="onDisagree">拒绝</view>
+      <button
+        id="privacy-agree-btn"
+        class="btn-agree"
+        open-type="agreePrivacyAuthorization"
+        bindagreeprivacyauthorization="onAgree"
+      >同意并继续</button>
+    </view>
+  </view>
+</view>

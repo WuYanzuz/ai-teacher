@@ -12,6 +12,7 @@ from ai_teacher.storage.models import Child
 
 from ..auth import current_user
 from ..models import Classroom, Membership, User
+from ..services import wx_security
 
 router = APIRouter(prefix="/api/children", tags=["children"])
 
@@ -47,6 +48,15 @@ def get_report(
         raise HTTPException(404, "no history for this child")
 
     history = storage_db.child_history(child, limit=10)
+    # Hide content that moderation flagged risky, from parents AND from teachers:
+    # the child-visible growth archive must never carry flagged material.
+    ids = [h["id"] for h in history]
+    if ids:
+        bad = (
+            wx_security.risky_ids(db, wx_security.TARGET_HOMEWORK_TEXT, ids)
+            | wx_security.risky_ids(db, wx_security.TARGET_HOMEWORK_MEDIA, ids)
+        )
+        history = [h for h in history if h["id"] not in bad]
     return {
         "child_name": child_name,
         "history": history,

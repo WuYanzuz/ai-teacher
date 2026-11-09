@@ -21,6 +21,7 @@ from ..models import (
     Membership,
     User,
 )
+from ..services import wx_security
 
 router = APIRouter(prefix="/api/checkin", tags=["checkin"])
 
@@ -216,6 +217,20 @@ def put_checkin(
         ck.teacher_id = user.id
     ck.note = (req.note or "").strip() or None
     db.flush()
+
+    notes = [ck.note] if ck.note else []
+    notes.extend(
+        part.strip() for item in req.items for part in [item.note or ""] if part.strip()
+    )
+    if notes:
+        wx_security.guard_text(
+            db,
+            target_type=wx_security.TARGET_CHECKIN_TEXT,
+            target_id=ck.id,
+            text="\n".join(notes),
+            openid=user.openid,
+            scene=wx_security.SCENE_COMMENT,
+        )
 
     for item in req.items:
         labels: list[str] = []

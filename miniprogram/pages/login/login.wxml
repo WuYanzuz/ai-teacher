@@ -15,6 +15,14 @@
     </view>
   </view>
 
+  <view class="consent" bindtap="onToggleAgree">
+    <view class="checkbox {{agreed ? 'checked' : ''}}">{{agreed ? '✓' : ''}}</view>
+    <view class="consent-text">
+      我已阅读并同意<text class="consent-link" catchtap="openPrivacy">《隐私政策》</text>；
+      我是孩子的监护人（或已获监护人许可），同意收集和处理孩子的作业影像与在园记录。
+    </view>
+  </view>
+
   <view class="card">
     <view class="label">开发模式</view>
     <view class="subtitle" style="font-size:24rpx;">本地测试用 dev_login, 自动创建用户</view>
@@ -26,11 +34,11 @@
       <text class="input-label">姓名</text>
       <input class="input" data-k="devName" value="{{devName}}" bindinput="onInput" />
     </view>
-    <view class="btn-primary" bindtap="onLogin" style="margin-top:20rpx;">登录</view>
+    <view class="btn-primary {{agreed ? '' : 'btn-disabled'}}" bindtap="onLogin" style="margin-top:20rpx;">登录</view>
   </view>
 
   <view class="card">
     <view class="label">正式环境 (需要后端配置 WX_APPID/WX_SECRET)</view>
-    <view class="btn-secondary" bindtap="onWxLogin">用微信登录</view>
+    <view class="btn-secondary {{agreed ? '' : 'btn-disabled'}}" bindtap="onWxLogin">用微信登录</view>
   </view>
 </view>

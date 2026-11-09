@@ -1,0 +1,69 @@
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 60rpx;
+  box-sizing: border-box;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 600rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 44rpx 40rpx 36rpx;
+}
+
+.title {
+  font-size: 34rpx;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 24rpx;
+}
+
+.desc {
+  font-size: 27rpx;
+  color: #4B5563;
+  line-height: 1.7;
+  margin-bottom: 20rpx;
+}
+
+.link {
+  color: #7C9CF1;
+}
+
+.btns {
+  display: flex;
+  gap: 24rpx;
+  margin-top: 16rpx;
+}
+
+.btn-reject {
+  flex: 1;
+  text-align: center;
+  padding: 22rpx 0;
+  border-radius: 12rpx;
+  border: 2rpx solid #D1D5DB;
+  color: #6B7280;
+  font-size: 30rpx;
+  box-sizing: border-box;
+}
+
+.btn-agree {
+  flex: 1;
+  margin: 0;
+  padding: 22rpx 0;
+  border-radius: 12rpx;
+  background: #7C9CF1;
+  color: #fff;
+  font-size: 30rpx;
+  line-height: 1.4;
+}
+
+.btn-agree::after {
+  border: none;
+}

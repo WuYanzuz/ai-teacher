@@ -22,3 +22,35 @@
 .input-row { display: flex; align-items: center; margin-bottom: 16rpx; }
 .input-label { width: 100rpx; font-size: 26rpx; color: #6B7280; }
 .input { flex: 1; border: 2rpx solid #E0E5EE; border-radius: 8rpx; padding: 14rpx 16rpx; font-size: 26rpx; }
+
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+  margin: 0 4rpx 32rpx;
+}
+.checkbox {
+  flex: none;
+  width: 36rpx;
+  height: 36rpx;
+  margin-top: 4rpx;
+  border: 2rpx solid #B6BFCE;
+  border-radius: 8rpx;
+  font-size: 26rpx;
+  color: #fff;
+  text-align: center;
+  line-height: 34rpx;
+  box-sizing: border-box;
+}
+.checkbox.checked {
+  background: #7C9CF1;
+  border-color: #7C9CF1;
+}
+.consent-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #6B7280;
+  line-height: 1.6;
+}
+.consent-link { color: #7C9CF1; }
+.btn-disabled { opacity: 0.55; }

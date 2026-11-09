@@ -19,6 +19,7 @@ from ai_teacher.utils.logger import get_logger
 from ..auth import current_user
 from ..config import get_settings
 from ..models import Classroom, Membership, User
+from ..services import wx_security
 from ..services.ai_pipeline import process_homework
 from ..services.storage import save_upload
 
@@ -39,6 +40,8 @@ class HomeworkOut(BaseModel):
     teacher_review: Optional[str] = None
     created_at: str
     submitter_name: str
+    # Latest content-security verdicts, e.g. {"media": "pass", "text": "pass"}
+    moderation: Optional[dict] = None
 
 
 class RenameReq(BaseModel):
@@ -70,6 +73,18 @@ def upload_homework(
     )
     if not m:
         raise HTTPException(403, "not a member of this class")
+    child_name = child_name.strip()
+    if not child_name:
+        raise HTTPException(400, "child name cannot be empty")
+    # Synchronous text moderation on the free-text child name.
+    wx_security.guard_text(
+        db,
+        target_type=wx_security.TARGET_USER_TEXT,
+        target_id=user.id,
+        text=child_name,
+        openid=user.openid,
+        scene=wx_security.SCENE_PROFILE,
+    )
     suffix = Path(file.filename or "").suffix.lower() or ".bin"
     content = file.file.read()
     if len(content) > 100 * 1024 * 1024:  # 100MB cap
@@ -94,8 +109,12 @@ def upload_homework(
     db.commit()
     db.refresh(hw)
     # Build the response before the background task runs; only pass the id.
+    # Background tasks run in registration order: AI pipeline first, then the
+    # feedback text check; media submission is independent and goes last.
     out = _to_out(db, hw, m, public_url)
     background.add_task(_process_async, hw.id, local_path, child_name)
+    background.add_task(wx_security.scan_homework_text, hw.id)
+    background.add_task(wx_security.scan_homework_media, hw.id)
     return out
 
 
@@ -144,12 +163,22 @@ def list_homework(
         raise HTTPException(404, "class not found")
     _require_class_member(db, c, user)
     stmt = select(Homework).where(Homework.classroom_id == class_id)
+    if user.role == "parent":
+        # Parents only ever see their own submissions, never classmates'.
+        stmt = stmt.where(Homework.submit_user_id == user.id)
     if only_homework:
         stmt = stmt.where(Homework.is_homework == 1)
     stmt = stmt.order_by(Homework.created_at.desc()).limit(100)
+    rows = db.scalars(stmt).all()
+    moderation = wx_security.homework_moderation(db, [hw.id for hw in rows])
+    risky = {tid for tid, mo in moderation.items() if "risky" in mo.values()}
     out = []
-    for hw in db.scalars(stmt).all():
-        out.append(_to_out(db, hw, None, _build_media_url(hw.media_path)))
+    for hw in rows:
+        # Risky content is hidden from parents; the teacher still sees it flagged.
+        if user.role == "parent" and hw.id in risky:
+            continue
+        out.append(_to_out(db, hw, None, _build_media_url(hw.media_path),
+                           moderation=moderation.get(hw.id)))
     return out
 
 
@@ -164,7 +193,11 @@ def get_homework(
         raise HTTPException(404, "not found")
     if not _can_view(db, hw, user):
         raise HTTPException(403, "forbidden")
-    return _to_out(db, hw, None, _build_media_url(hw.media_path))
+    moderation = wx_security.homework_moderation(db, [hw.id]).get(hw.id)
+    if user.role == "parent" and moderation and "risky" in moderation.values():
+        raise HTTPException(404, "not found")
+    return _to_out(db, hw, None, _build_media_url(hw.media_path),
+                   moderation=moderation)
 
 
 @router.post("/{hw_id}/rename", response_model=HomeworkOut)
@@ -237,6 +270,14 @@ def edit_feedback(
     new_text = (req.feedback or "").strip()
     if not new_text:
         raise HTTPException(400, "feedback cannot be empty")
+    wx_security.guard_text(
+        db,
+        target_type=wx_security.TARGET_HOMEWORK_TEXT,
+        target_id=hw.id,
+        text=new_text,
+        openid=user.openid,
+        scene=wx_security.SCENE_COMMENT,
+    )
     if not hw.teacher_review or "已编辑" not in hw.teacher_review:
         hw.teacher_review = "✏️ 已编辑"
     hw.feedback = new_text
@@ -331,7 +372,13 @@ def _resolve_child_name(db: Session, hw: Homework) -> str:
     return child.name if child else "?"
 
 
-def _to_out(db: Session, hw: Homework, membership: Optional[Membership], media_url: Optional[str]) -> HomeworkOut:
+def _to_out(
+    db: Session,
+    hw: Homework,
+    membership: Optional[Membership],
+    media_url: Optional[str],
+    moderation: Optional[dict] = None,
+) -> HomeworkOut:
     child_name = hw.child_name
     if not child_name:
         child = db.get(Child, hw.child_id) if hw.child_id else None
@@ -353,6 +400,7 @@ def _to_out(db: Session, hw: Homework, membership: Optional[Membership], media_u
         teacher_review=hw.teacher_review,
         created_at=hw.created_at.isoformat() if hw.created_at else "",
         submitter_name=submitter,
+        moderation=moderation,
     )
 
 

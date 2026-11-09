@@ -7,6 +7,7 @@ Page({
     role: "parent",  // default
     devOpenid: "demo_parent_001",
     devName: "测试家长",
+    agreed: false,   // guardian consent to the privacy policy
   },
 
   onLoad() {
@@ -34,7 +35,24 @@ Page({
     this.setData({ [k]: e.detail.value });
   },
 
+  onToggleAgree() {
+    this.setData({ agreed: !this.data.agreed });
+  },
+
+  openPrivacy() {
+    wx.navigateTo({ url: "/pages/privacy/privacy" });
+  },
+
+  _ensureAgreed() {
+    if (!this.data.agreed) {
+      wx.showToast({ title: "请先阅读并同意《隐私政策》", icon: "none" });
+      return false;
+    }
+    return true;
+  },
+
   async onLogin() {
+    if (!this._ensureAgreed()) return;
     wx.showLoading({ title: "登录中..." });
     try {
       const r = await api.devLogin(this.data.devOpenid, this.data.devName, this.data.role);
@@ -48,6 +66,7 @@ Page({
   },
 
   async onWxLogin() {
+    if (!this._ensureAgreed()) return;
     // Real WeChat login (requires appid configured on server)
     wx.showLoading({ title: "微信登录..." });
     try {

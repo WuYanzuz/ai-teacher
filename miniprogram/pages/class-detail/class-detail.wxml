@@ -32,6 +32,9 @@
       </view>
     </view>
     <view class="divider"></view>
+    <view wx:if="{{item.moderation && (item.moderation.media === 'risky' || item.moderation.text === 'risky')}}" class="risk-warn">
+      ⚠️ 内容安全检测未通过（{{item.moderation.media === 'risky' ? '媒体' : '点评文本'}}），请核实后忽略，勿向家长展示
+    </view>
     <view class="feedback">{{item.polished_feedback}}</view>
   </view>
 </view>

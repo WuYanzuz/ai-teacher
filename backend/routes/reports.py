@@ -20,7 +20,19 @@ from ..models import (
     ReportBatch,
     User,
 )
-from ..services import report_service
+from ..services import report_service, wx_security
+
+
+def _guard_report_text(db: Session, r: ChildReport, text: str, user: User) -> None:
+    """Raise 400 if the text the parents will see fails moderation."""
+    wx_security.guard_text(
+        db,
+        target_type=wx_security.TARGET_REPORT_TEXT,
+        target_id=r.id,
+        text=text,
+        openid=user.openid,
+        scene=wx_security.SCENE_COMMENT,
+    )
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -172,13 +184,20 @@ def publish_all(
     _owned_class(db, b.classroom_id, user)
     now = datetime.now()
     count = 0
+    blocked: list[str] = []
     for r in b.reports:
         if r.status == "done" and not r.is_published:
+            visible = r.teacher_edit or r.content or ""
+            try:
+                _guard_report_text(db, r, visible, user)
+            except HTTPException:
+                blocked.append(r.child_name)
+                continue
             r.is_published = 1
             r.published_at = now
             count += 1
     db.commit()
-    return {"published": count}
+    return {"published": count, "blocked": blocked}
 
 
 # ---------- single report routes ----------
@@ -243,6 +262,7 @@ def edit_report(
     text = (req.content or "").strip()
     if not text:
         raise HTTPException(400, "content cannot be empty")
+    _guard_report_text(db, r, text, user)
     r.teacher_edit = text
     db.commit()
     return _report_out(r)
@@ -260,6 +280,8 @@ def publish_report(
     _owned_class(db, r.classroom_id, user)
     if r.status != "done":
         raise HTTPException(400, "report is not ready")
+    # Covers unedited AI drafts too: whatever the parents will see is checked.
+    _guard_report_text(db, r, r.teacher_edit or r.content or "", user)
     r.is_published = 1
     r.published_at = datetime.now()
     db.commit()

@@ -1,0 +1,37 @@
+.doc {
+  padding: 32rpx 28rpx 80rpx;
+}
+
+.h1 {
+  font-size: 38rpx;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 12rpx;
+}
+
+.muted {
+  text-align: center;
+  font-size: 24rpx;
+  color: #9CA3AF;
+  margin-bottom: 32rpx;
+}
+
+.h2 {
+  font-size: 30rpx;
+  font-weight: 600;
+  margin: 36rpx 0 12rpx;
+}
+
+.p {
+  font-size: 27rpx;
+  color: #374151;
+  line-height: 1.8;
+  margin-bottom: 12rpx;
+}
+
+.li {
+  font-size: 27rpx;
+  color: #374151;
+  line-height: 1.8;
+  margin-bottom: 8rpx;
+}

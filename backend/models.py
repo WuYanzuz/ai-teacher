@@ -13,6 +13,9 @@ Growth-checkin tables (teacher quick-record per child/day):
 AI report tables (per-child daily/weekly reports generated in batch):
   - ReportBatch / ChildReport
 
+Content security (WeChat msg_sec_check / media_check_async verdicts):
+  - ContentScan
+
 All models share the Base/metadata in ai_teacher.storage.database.
 """
 
@@ -339,6 +342,40 @@ class ChildReport(Base):
     batch: Mapped[ReportBatch] = relationship(back_populates="reports")
 
 
+class ContentScan(Base):
+    """One WeChat content-security verdict for a piece of text or media.
+
+    Media checks (media_check_async) are asynchronous: a row starts as
+    ``pending`` with ``trace_id`` and is updated by the /api/wx/notify
+    callback. A separate table (rather than columns on homework/report)
+    keeps create_all sufficient on existing SQLite/Oracle DBs.
+    """
+
+    __tablename__ = "content_scan"
+    __table_args__ = (
+        Index("ix_content_scan_target", "target_type", "target_id"),
+        Index("ix_content_scan_trace", "trace_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    # 'user_text' | 'homework_text' | 'homework_media' | 'report_text'
+    # | 'checkin_text'
+    target_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_id: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 'text' | 'image' | 'voice' | 'video'
+    kind: Mapped[str] = mapped_column(String(8), nullable=False, default="text")
+    trace_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # 'pending' | 'pass' | 'review' | 'risky' | 'error' | 'skipped'
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    label: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    detail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    openid: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP, default=datetime.now, onupdate=datetime.now
+    )
+
+
 ALL_NEW_TABLES = [
     User,
     Classroom,
@@ -350,4 +387,5 @@ ALL_NEW_TABLES = [
     GrowthCheckinItem,
     ReportBatch,
     ChildReport,
+    ContentScan,
 ]

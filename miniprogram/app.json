@@ -12,7 +12,8 @@
     "pages/checkin/checkin",
     "pages/checkin-edit/checkin-edit",
     "pages/report-batch/report-batch",
-    "pages/report-detail/report-detail"
+    "pages/report-detail/report-detail",
+    "pages/privacy/privacy"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -22,5 +23,9 @@
     "backgroundColor": "#F4F6FA"
   },
   "style": "v2",
-  "sitemapLocation": "sitemap.json"
+  "sitemapLocation": "sitemap.json",
+  "__usePrivacyCheck__": true,
+  "usingComponents": {
+    "privacy-popup": "/components/privacy-popup/privacy-popup"
+  }
 }

@@ -16,6 +16,7 @@ from ai_teacher.storage.database import get_db
 
 from ..auth import current_user
 from ..models import Classroom, Membership, User
+from ..services import wx_security
 
 router = APIRouter(prefix="/api/classes", tags=["classes"])
 
@@ -108,6 +109,17 @@ def join_class(req: JoinClassReq, db: Session = Depends(get_db), user: User = De
     c = db.scalar(select(Classroom).where(Classroom.code == req.code))
     if not c:
         raise HTTPException(404, "invalid class code")
+    child_name = (req.child_name or "").strip()
+    if not child_name:
+        raise HTTPException(400, "child name cannot be empty")
+    wx_security.guard_text(
+        db,
+        target_type=wx_security.TARGET_USER_TEXT,
+        target_id=user.id,
+        text=child_name,
+        openid=user.openid,
+        scene=wx_security.SCENE_PROFILE,
+    )
     existing = db.scalar(
         select(Membership.id).where(
             Membership.user_id == user.id,
@@ -117,7 +129,7 @@ def join_class(req: JoinClassReq, db: Session = Depends(get_db), user: User = De
     if not existing:
         db.add(Membership(
             user=user, classroom=c,
-            child_name=req.child_name, created_at=datetime.now(),
+            child_name=child_name, created_at=datetime.now(),
         ))
         db.commit()
     return _to_out(db, c, user)
